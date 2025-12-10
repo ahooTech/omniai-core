@@ -1,0 +1,22 @@
+
+# Enforce consistent line endings
+*           text=auto
+
+# Force scripts to use LF (critical for Docker/Linux)
+*.sh        text eol=lf
+*.py        text eol=lf
+
+# Lock core files
+README.md   text eol=lf
+pyproject.toml text eol=lf
+*.toml      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# Leave binary files alone
+*.exe       binary
+*.dll       binary
+*.whl       binary
+*.zip       binary
+*.png       binary
+*.jpg       binary
