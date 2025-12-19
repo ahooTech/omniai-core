@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from omniai.api.health import router as health_router
 from omniai.core.middleware import TenantValidationMiddleware
 
 app = FastAPI(
@@ -10,7 +11,5 @@ app = FastAPI(
 # Register middleware early in stack
 app.add_middleware(TenantValidationMiddleware)
 
-@app.get("/health")
-async def health_check():
-    return {"status": "ok", "service": "omniai-core"}
-
+# Register routes AFTER middleware
+app.include_router(health_router)
