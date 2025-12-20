@@ -32,7 +32,59 @@ pip install -e .
 uvicorn src.omniai.main:app --reload
 ```
 ## 📁 Project Structure
-
+```
+OMNIAI-CORE/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── .gitattributes
+├── .gitignore
+├── LICENSE
+├── README.md
+├── docker-compose.yml
+├── Dockerfile
+├── pyproject.toml
+├── scripts/
+│   └── bootstrap.sh
+├── src/
+│   ├── omniai/
+│   │   ├── __init__.py
+│   │   ├── main.py
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   └── v1/
+│   │   │       ├── __init__.py
+│   │   │       ├── agriculture.py
+│   │   │       └── health.py
+│   │   ├── core/
+│   │   │   ├── __init__.py
+│   │   │   └── middleware.py
+│   │   ├── db/
+│   │   │   ├── __init__.py
+│   │   │   └── session.py
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   └── organization.py
+│   │   └── services/
+│   │       ├── __init__.py
+│   │       └── organization.py
+│   └── omniai.egg-info/
+│       ├── dependency_links.txt
+│       ├── PKG-INFO
+│       ├── SOURCES.txt
+│       ├── top_level.txt
+│       └── ... (other standard egg-info files — **no entry_points.txt**)
+├── tests/
+│   ├── __init__.py
+│   └── unit/
+│       ├── __init__.py
+│       └── test_tenant_middleware.py
+└── venv/
+    ├── Include/
+    ├── Lib/
+    ├── Scripts/
+    └── pyvenv.cfg
+```
 ## 🧪 Testing
 
 ```bash
