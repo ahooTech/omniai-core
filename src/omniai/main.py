@@ -50,7 +50,8 @@ IMPORTANT: This file should remain CLEAN.
 """
 
 from fastapi import FastAPI
-from omniai.api.health import router as health_router
+from omniai.api.v1.health import router as health_router
+from omniai.api.v1.agriculture import router as agriculture_router
 from omniai.core.middleware import TenantValidationMiddleware
 
 app = FastAPI(
@@ -63,4 +64,6 @@ app = FastAPI(
 app.add_middleware(TenantValidationMiddleware)
 
 # Register routes AFTER middleware
-app.include_router(health_router)
+# Exclude later because it is for ops and not user interaction. We will edit middleware.py to bypass checking health_router because we dont need middleware validation of tenant in order to check if system is alive
+app.include_router(health_router) # All middlewares run first so we don't want an error in the middleware to block this code from running when being checked by aws, kubernetes e.t.c
+app.include_router(agriculture_router)

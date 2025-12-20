@@ -49,13 +49,23 @@ NOTE: Only implement features when their prerequisite skills are mastered.
 Do not pre-optimize. Build incrementally.
 """
 
-
+# Listen for ID's e.t.c
 from fastapi import Request
+# Identify ID's e.t.c
 from starlette.middleware.base import BaseHTTPMiddleware
+# Respond to user's message
 from starlette.responses import JSONResponse
 
 class TenantValidationMiddleware(BaseHTTPMiddleware):
+    # Define paths that don't need tenant validation
+    EXCLUDED_PATHS = {"/v1/health", "/metrics", "/ready"}
+
     async def dispatch(self, request: Request, call_next):
+
+         # Skip tenant check for operational endpoints.
+        if request.url.path in self.EXCLUDED_PATHS:
+            return await call_next(request)
+        
         # Get raw header value — headers.get() returns None if absent
         tenant_id = request.headers.get("x-tenant-id")
 
@@ -74,7 +84,7 @@ class TenantValidationMiddleware(BaseHTTPMiddleware):
             )
 
         # 3. VALID: proceed (later we'll validate existence in DB)
-        request.state.tenant_id = tenant_id  # store ID for now; full object later
-        response = await call_next(request)
+        request.state.tenant_id = tenant_id  # store ID for now; full object later "request.state is  aprivate notepad to remember the ID that made the request as we proceed down the system."
+        response = await call_next(request) # takes message to the appropriate handler then returns message to response
         return response
 # Fetch tenant ID from database and ensure tenant exists in database

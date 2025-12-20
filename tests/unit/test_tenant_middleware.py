@@ -52,7 +52,7 @@ PRINCIPLES:
 import pytest
 from httpx import AsyncClient, ASGITransport
 from omniai.main import app
-
+# include pip install httpx in my pyproject.toml
 @pytest.mark.asyncio
 async def test_missing_tenant_id():
     # Use ASGITransport to wrap the FastAPI app
@@ -60,7 +60,7 @@ async def test_missing_tenant_id():
         transport=ASGITransport(app=app),
         base_url="http://test"
     ) as ac:
-        response = await ac.get("/v1/health")  # or any route
+        response = await ac.get("/v1/agriculture")  # or any route
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "MISSING_TENANT_ID"
 
@@ -70,6 +70,6 @@ async def test_invalid_tenant_id():
         transport=ASGITransport(app=app),
         base_url="http://test"
     ) as ac:
-        response = await ac.get("/v1/health", headers={"x-tenant-id": ""})
+        response = await ac.get("/v1/agriculture", headers={"x-tenant-id": ""})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "INVALID_TENANT_ID"
