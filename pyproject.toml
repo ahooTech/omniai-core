@@ -22,10 +22,27 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
+    # Web & API
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
+    
+    # Data Validation & Settings
     "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",        # ← NEW: for config management
+    
+    # Database
+    "sqlalchemy[asyncio]>=2.0.36",     # ← NEW: core ORM + async support
+    "asyncpg>=0.29.0",                 # ← NEW: async PostgreSQL driver
+    
+    # Security & Auth
+    "python-jose[cryptography]>=3.3.0", # ← NEW: JWT encoding/decoding
+    "passlib[bcrypt]>=1.7.4",          # ← NEW: password hashing
+    
+    # HTTP Client (for future service calls)
     "httpx>=0.28.0",
+    
+    # Structured Logging (optional but recommended)
+    "structlog>=24.4.0",               # ← NEW: production-grade logs
 ]
 
 [project.optional-dependencies]
@@ -35,6 +52,8 @@ dev = [
     "pytest-cov>=5.0",
     "mypy>=1.13.0",
     "ruff>=0.8.0",
+    "bandit>=1.7.9",                   # ← NEW: security linter
+    "httpx>=0.28.0",                   # already in main, but safe to repeat
 ]
 
 [tool.setuptools.packages.find]
