@@ -53,6 +53,7 @@ from fastapi import FastAPI
 from omniai.api.v1.health import router as health_router
 from omniai.api.v1.agriculture import router as agriculture_router
 from omniai.core.middleware import TenantValidationMiddleware
+from omniai.core.config import settings  # Reserved for future use
 
 app = FastAPI(
     title="OMNIAI Core Platform",
@@ -60,10 +61,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Register middleware early in stack
+# Middleware
 app.add_middleware(TenantValidationMiddleware)
 
-# Register routes AFTER middleware
-# Exclude later because it is for ops and not user interaction. We will edit middleware.py to bypass checking health_router because we dont need middleware validation of tenant in order to check if system is alive
-app.include_router(health_router) # All middlewares run first so we don't want an error in the middleware to block this code from running when being checked by aws, kubernetes e.t.c
-app.include_router(agriculture_router)
+# Routers — versioned at mount point
+app.include_router(health_router, prefix="/v1")
+app.include_router(agriculture_router, prefix="/v1")
+
+# Optional: CLI runner -> for starting and testing the app localy but in production we will use docker
+def main():
+    import uvicorn
+    uvicorn.run("omniai.main:app", host="0.0.0.0", port=8000, reload=True)
