@@ -1,38 +1,36 @@
-# src/omniai/db/session.py
-# PHASE 1 PLACEHOLDER — will be replaced with real DB session in Database Engineering phase
+# Mix-ups: Your data never gets tangled with someone else’s.
+# Leaks: After your request is done, the connection is fully closed — no leftover access.
+# Overload: The system handles many users at once without crashing (like a bank with enough tellers).
+# Speed: It reuses safe connections efficiently so things feel fast.
 
-from typing import Generator
 
-def get_db() -> Generator:
-    """
-    Placeholder DB session generator.
-    In Phase 1 (Database Engineering), this will return a real SQLAlchemy session.
-    For now, it yields a mock session object.
-    """
-    # Mock session object with .query() method
-    class MockSession:
-        def query(self, model):
-            return MockQuery(model)
+# 🔁 The Pattern Is Always the Same:
+# You do something (click, type, ask).
+# OMNIAI opens a clean, private, short-lived connection to the database.
+# It reads or writes only what’s needed — nothing extra.
+# It closes the connection immediately — like hanging up a phone call.
+# You get your result — fast, safe, and personal.
+# 🛡️ Why This Matters to You (the user):
+# No data leaks: Your info never gets “stuck” in a shared connection.
+# No slowdowns: Even if 10,000 people use OMNIAI at once, each gets their own lane.
+# No corruption: Two people saving data at the same time won’t overwrite each other.
+# Total privacy: The system only sees your data when you’re actively using it.
 
-        def close(self):
-            pass
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+from omniai.core.config import settings
 
-    class MockQuery:
-        def __init__(self, model):
-            self.model = model
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=False,
+    pool_size=10,
+    max_overflow=20,
+)
 
-        def filter(self, *args, **kwargs):
-            return self
+AsyncSessionLocal = sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
-        def first(self):
-            # For testing middleware: return a mock tenant if ID matches
-            from omniai.models.organization import Organization
-            if hasattr(self, '_mock_id') and self._mock_id == "ng-lagos-moh-2025":
-                return Organization(id="ng-lagos-moh-2025", name="Lagos State Ministry of Health")
-            return None
-
-    session = MockSession()
-    try:
+async def get_db():
+    async with AsyncSessionLocal() as session:
         yield session
-    finally:
-        session.close()

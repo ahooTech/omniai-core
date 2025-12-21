@@ -62,3 +62,6 @@ desktop.ini
 *.egg-info/
 dist/
 build/
+
+# Secrets
+.env
