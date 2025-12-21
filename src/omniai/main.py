@@ -50,10 +50,22 @@ IMPORTANT: This file should remain CLEAN.
 """
 
 from fastapi import FastAPI
+from omniai.api.v1 import auth, me 
 from omniai.api.v1.health import router as health_router
 from omniai.api.v1.agriculture import router as agriculture_router
 from omniai.core.middleware import TenantValidationMiddleware
 from omniai.core.config import settings  # Reserved for future use
+
+from omniai.models.user import Base as UserBase
+from omniai.models.organization import Base as OrgBase
+from omniai.db.session import engine
+
+# Create DB Tables on Startup
+@app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(UserBase.metadata.create_all)
+        await conn.run_sync(OrgBase.metadata.create_all)
 
 app = FastAPI(
     title="OMNIAI Core Platform",
@@ -67,6 +79,9 @@ app.add_middleware(TenantValidationMiddleware)
 # Routers — versioned at mount point
 app.include_router(health_router, prefix="/v1")
 app.include_router(agriculture_router, prefix="/v1")
+
+app.include_router(auth.router, prefix="/v1/auth")
+app.include_router(me.router, prefix="/v1")  # ← This is correct
 
 # Optional: CLI runner -> for starting and testing the app localy but in production we will use docker
 def main():

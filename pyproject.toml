@@ -7,7 +7,8 @@ name = "omniai"
 version = "0.1.0"
 description = "The Sovereign AI Foundation Layer for Emerging Economies"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"                   # ✅ SPDX short identifier (string, NOT table)
+license-files = ["LICENSE"]       # ✅ Explicit license file
 authors = [
     { name = "Antony Henry Oduor Onyango", email = "harryoduwor@gmail.com" }
 ]
@@ -43,6 +44,8 @@ dependencies = [
     
     # Structured Logging (optional but recommended)
     "structlog>=24.4.0",               # ← NEW: production-grade logs
+    
+    "uuid>=1.30", 
 ]
 
 [project.optional-dependencies]

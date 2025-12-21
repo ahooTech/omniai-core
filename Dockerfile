@@ -7,11 +7,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e .
-
+# ✅ COPY EVERYTHING needed for editable install BEFORE running pip
+COPY pyproject.toml README.md LICENSE ./
 COPY src/ ./src/
 COPY scripts/ ./scripts/
+
+# ✅ Now install — all files are present
+RUN pip install --no-cache-dir -e .
 
 EXPOSE 8000
 

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16
@@ -10,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
 
   app:
     build: .
@@ -22,7 +20,7 @@ services:
     depends_on:
       - db
     volumes:
-      - ./src:/app/src  # for dev reload
+      - ./src:/app/src
 
 volumes:
-  postgres_
+  postgres_data:
