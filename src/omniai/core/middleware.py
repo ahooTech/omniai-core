@@ -49,42 +49,62 @@ NOTE: Only implement features when their prerequisite skills are mastered.
 Do not pre-optimize. Build incrementally.
 """
 
-# Listen for ID's e.t.c
-from fastapi import Request
-# Identify ID's e.t.c
+# src/omniai/core/middleware.py
 from starlette.middleware.base import BaseHTTPMiddleware
-# Respond to user's message
+from fastapi import Request, HTTPException
 from starlette.responses import JSONResponse
+from jose import jwt, JWTError
+from omniai.core.config import settings
+
+# Paths that do NOT require authentication or tenant context
+PUBLIC_PATHS = {
+    "/v1/health",
+    "/metrics",
+    "/ready",
+    "/v1/auth/signup",
+    "/v1/auth/login",
+    "/docs",
+    "/openapi.json",
+}
 
 class TenantValidationMiddleware(BaseHTTPMiddleware):
-    # Define paths that don't need tenant validation
-    EXCLUDED_PATHS = {"/v1/health", "/metrics", "/ready"}
-
     async def dispatch(self, request: Request, call_next):
-
-         # Skip tenant check for operational endpoints.
-        if request.url.path in self.EXCLUDED_PATHS:
+        # Skip tenant/auth checks for public paths
+        if request.url.path in PUBLIC_PATHS:
             return await call_next(request)
-        
-        # Get raw header value — headers.get() returns None if absent
-        tenant_id = request.headers.get("x-tenant-id")
 
-        # 1. MISSING: header not present at all
-        if tenant_id is None:
+        # Extract JWT token from Authorization header
+        auth_header = request.headers.get("authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
             return JSONResponse(
-                status_code=400,
-                content={"error": {"code": "MISSING_TENANT_ID", "message": "X-Tenant-ID header is required"}}
+                status_code=401,
+                content={"error": {"code": "MISSING_AUTH_TOKEN", "message": "Authorization header missing or invalid"}}
             )
 
-        # 2. INVALID: header present but empty or not a valid string
-        if not isinstance(tenant_id, str) or tenant_id.strip() == "":
+        token = auth_header[7:]  # Remove "Bearer "
+
+        try:
+            # Decode and validate JWT
+            payload = jwt.decode(
+                token,
+                settings.JWT_SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM]
+            )
+            email = payload.get("sub")
+            tenant_id = payload.get("tenant")
+
+            if not email or not tenant_id:
+                raise JWTError("Missing required claims")
+
+            # ✅ TRUSTED: tenant_id comes from signed JWT, not client header
+            request.state.tenant_id = tenant_id
+            request.state.user_email = email
+
+        except JWTError:
             return JSONResponse(
-                status_code=400,
-                content={"error": {"code": "INVALID_TENANT_ID", "message": "Tenant ID must be a non-empty string"}}
+                status_code=401,
+                content={"error": {"code": "INVALID_TOKEN", "message": "Invalid or expired token"}}
             )
 
-        # 3. VALID: proceed (later we'll validate existence in DB)
-        request.state.tenant_id = tenant_id  # store ID for now; full object later "request.state is  aprivate notepad to remember the ID that made the request as we proceed down the system."
-        response = await call_next(request) # takes message to the appropriate handler then returns message to response
+        response = await call_next(request)
         return response
-# Fetch tenant ID from database and ensure tenant exists in database

@@ -42,9 +42,7 @@ async def authenticate_user(db: AsyncSession, email: str, password: str):
 
 async def create_user_with_org(db: AsyncSession, email: str, password: str, org_name: str):
     # later admin should be able to create organization and sent invite links via email.
-    if not org_name:
-        org_name = f"Personal – {email}"
-
+    
     base_slug = generate_slug(org_name)
     slug = base_slug
     counter = 1

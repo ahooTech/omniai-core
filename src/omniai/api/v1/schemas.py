@@ -5,7 +5,6 @@ from typing import Optional
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    #organization_name: Optional[str] = None  # ← Now optional
 
 class Token(BaseModel):
     access_token: str
