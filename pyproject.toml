@@ -45,7 +45,6 @@ dependencies = [
     # Structured Logging (optional but recommended)
     "structlog>=24.4.0",               # ← NEW: production-grade logs
     
-    "uuid>=1.30", 
 ]
 
 [project.optional-dependencies]
