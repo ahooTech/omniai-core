@@ -37,7 +37,9 @@ async def login(
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # ✅ ONLY put user.id in token — NO tenant
     access_token = create_access_token(
-        data={"sub": user.email, "tenant": user.organization_id}
+        data={"sub": user.id}  # ← user.id, not email!
     )
     return {"access_token": access_token, "token_type": "bearer"}

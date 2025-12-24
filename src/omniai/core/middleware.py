@@ -55,8 +55,12 @@ from fastapi import Request, HTTPException
 from starlette.responses import JSONResponse
 from jose import jwt, JWTError
 from omniai.core.config import settings
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from omniai.db.session import AsyncSessionLocal
+from omniai.models.user import user_organization
 
-# Paths that do NOT require authentication or tenant context
+# Public paths (no auth needed)
 PUBLIC_PATHS = {
     "/v1/health",
     "/metrics",
@@ -69,42 +73,70 @@ PUBLIC_PATHS = {
 
 class TenantValidationMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        # Skip tenant/auth checks for public paths
         if request.url.path in PUBLIC_PATHS:
             return await call_next(request)
 
-        # Extract JWT token from Authorization header
+        # === STEP 1: Authenticate user via JWT ===
         auth_header = request.headers.get("authorization")
         if not auth_header or not auth_header.startswith("Bearer "):
             return JSONResponse(
                 status_code=401,
-                content={"error": {"code": "MISSING_AUTH_TOKEN", "message": "Authorization header missing or invalid"}}
+                content={"error": {"code": "MISSING_AUTH_TOKEN", "message": "Authorization header missing"}}
             )
 
-        token = auth_header[7:]  # Remove "Bearer "
-
+        token = auth_header[7:]
         try:
-            # Decode and validate JWT
             payload = jwt.decode(
                 token,
                 settings.JWT_SECRET_KEY,
                 algorithms=[settings.JWT_ALGORITHM]
             )
-            email = payload.get("sub")
-            tenant_id = payload.get("tenant")
-
-            if not email or not tenant_id:
-                raise JWTError("Missing required claims")
-
-            # ✅ TRUSTED: tenant_id comes from signed JWT, not client header
-            request.state.tenant_id = tenant_id
-            request.state.user_email = email
-
+            user_id = payload.get("sub")  # ← MUST be user.id, not email!
+            if not user_id:
+                raise JWTError("Missing user ID in token")
         except JWTError:
             return JSONResponse(
                 status_code=401,
                 content={"error": {"code": "INVALID_TOKEN", "message": "Invalid or expired token"}}
             )
 
-        response = await call_next(request)
-        return response
+        # === STEP 2: Get tenant from X-Tenant-ID header ===
+        tenant_id = request.headers.get("x-tenant-id")
+        if not tenant_id:
+            # If missing, use user's DEFAULT org
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(user_organization.c.organization_id)
+                    .where(
+                        user_organization.c.user_id == user_id,
+                        user_organization.c.is_default == True
+                    )
+                )
+                default_org = result.scalar_one_or_none()
+                if not default_org:
+                    return JSONResponse(
+                        status_code=403,
+                        content={"error": {"code": "NO_DEFAULT_ORG", "message": "User has no default organization"}}
+                    )
+                tenant_id = default_org
+
+        # === STEP 3: Validate user is member of tenant_id ===
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(user_organization.c.organization_id)
+                .where(
+                    user_organization.c.user_id == user_id,
+                    user_organization.c.organization_id == tenant_id
+                )
+            )
+            if result.scalar_one_or_none() is None:
+                return JSONResponse(
+                    status_code=403,
+                    content={"error": {"code": "NOT_ORG_MEMBER", "message": "Not a member of the specified organization"}}
+                )
+
+        # === STEP 4: Attach to request ===
+        request.state.user_id = user_id
+        request.state.tenant_id = tenant_id
+
+        return await call_next(request)
