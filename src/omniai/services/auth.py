@@ -8,14 +8,40 @@ from omniai.core.config import settings
 from omniai.models.user import User, user_organization
 from omniai.models.organization import Organization
 from sqlalchemy.ext.asyncio import AsyncSession
+import bcrypt
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# src/omniai/services/auth.py
+def get_password_hash(password: str) -> str:
+    # ✅ Truncate to 72 bytes (bcrypt limit)
+    password_bytes = password.encode("utf-8")
+    truncated = password_bytes[:72]
+    # Hash using bcrypt
+    hashed = bcrypt.hashpw(truncated, bcrypt.gensalt())
+    return hashed.decode("utf-8")
 
-def verify_password(plain_password, hashed_password):
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    plain_bytes = plain_password.encode("utf-8")[:72]
+    hashed_bytes = hashed_password.encode("utf-8")
+    return bcrypt.checkpw(plain_bytes, hashed_bytes)
+
+"""
+# TEMPORARY: for development only
+import hashlib
+
+def get_password_hash(password: str) -> str:
+    # ⚠️ NEVER use this in production
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return get_password_hash(plain_password) == hashed_password """
+
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+"""def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    return pwd_context.hash(password) """
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()

@@ -50,6 +50,7 @@ IMPORTANT: This file should remain CLEAN.
 """
 
 # src/omniai/main.py
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from omniai.api.v1 import auth, me
@@ -59,17 +60,26 @@ from omniai.core.middleware import TenantValidationMiddleware
 from omniai.db.session import engine
 from omniai.models.user import Base as UserBase
 from omniai.models.organization import Base as OrgBase
-
+from sqlalchemy.exc import OperationalError
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables
-    async with engine.begin() as conn:
-        await conn.run_sync(UserBase.metadata.create_all)
-        await conn.run_sync(OrgBase.metadata.create_all)
+    # Wait for DB to be ready
+    for i in range(10):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(UserBase.metadata.create_all)
+                await conn.run_sync(OrgBase.metadata.create_all)
+            break
+        except OperationalError:
+            print(f"DB not ready, retrying... ({i+1}/10)")
+            await asyncio.sleep(2)
+    else:
+        raise RuntimeError("Failed to connect to database after 10 attempts")
+    
     yield
-    # Shutdown
     await engine.dispose()
+
 
 
 app = FastAPI(
