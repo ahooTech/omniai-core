@@ -30,5 +30,6 @@ async def read_users_me(
     return UserMe(
         id=user.id,
         email=user.email,
-        organization_id=user.organization_id
+        organization_id=user.default_organization_id,
+        # Later, you can add: orgs: List[OrgSummary]
     )

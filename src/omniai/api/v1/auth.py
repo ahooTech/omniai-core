@@ -17,15 +17,11 @@ async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Pass organization_name (can be None — service handles it)
-    org_name = f"Personal – {user.email}"
-    # Later: org_name = f"Personal – {email} ({country_code})"
-    # In future, infer from email domain or IP — for now, just label
+    
     await create_user_with_org(
         db=db,
         email=user.email,
-        password=user.password,
-        org_name=org_name  # ← This can now be None
+        password=user.password
     )
     return {"msg": "User created"}
 

@@ -13,4 +13,4 @@ class Token(BaseModel):
 class UserMe(BaseModel):
     id: str
     email: str
-    organization_id: str
+    default_organization_id: str

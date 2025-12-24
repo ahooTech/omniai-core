@@ -1,24 +1,15 @@
 # src/omniai/services/auth.py
 import re
 from datetime import datetime, timedelta
-from sqlalchemy import select
+from sqlalchemy import select, insert
 from passlib.context import CryptContext
 from jose import jwt
 from omniai.core.config import settings
-from omniai.models.user import User
+from omniai.models.user import User, user_organization
 from omniai.models.organization import Organization
 from sqlalchemy.ext.asyncio import AsyncSession
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def generate_slug(name: str) -> str:
-    """Generate a URL-safe, unique-friendly slug from organization name."""
-    # Convert to lowercase and keep only alphanumeric, spaces, and hyphens
-    normalized = re.sub(r"[^a-z0-9\s-]", "", name.lower())
-    # Replace any sequence of spaces or hyphens with a single hyphen
-    slug = re.sub(r"[-\s]+", "-", normalized).strip("-")
-    # Truncate to 26 chars to allow room for suffix (e.g., '-1')
-    return slug[:26]
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -39,15 +30,22 @@ async def authenticate_user(db: AsyncSession, email: str, password: str):
         return False
     return user
 
-
-async def create_user_with_org(db: AsyncSession, email: str, password: str, org_name: str):
-    # later admin should be able to create organization and sent invite links via email.
+async def create_user_with_org(db: AsyncSession, email: str, password: str):
+    """
+    Creates a new user with a Personal organization.
+    The user is the OWNER of this org, and it is set as their DEFAULT.
+    """
+    # === 1. Create Personal Organization ===
+    # Later: org_name = f"Personal – {email} ({country_code})"
+    # In future, infer from email domain or IP — for now, just label
+    personal_org_name = f"Personal – {email}"
     
-    base_slug = generate_slug(org_name)
+    # Generate slug
+    normalized = re.sub(r"[^a-z0-9\s-]", "", personal_org_name.lower())
+    base_slug = re.sub(r"[-\s]+", "-", normalized).strip("-")[:26]
+    
     slug = base_slug
     counter = 1
-
-    # Ensure slug is unique across all organizations
     while True:
         result = await db.execute(select(Organization).where(Organization.slug == slug))
         if result.scalar_one_or_none() is None:
@@ -55,17 +53,30 @@ async def create_user_with_org(db: AsyncSession, email: str, password: str, org_
         slug = f"{base_slug}-{counter}"
         counter += 1
         if counter > 100:
-            raise ValueError("Could not generate a unique slug after 100 attempts")
+            raise ValueError("Could not generate a unique slug for Personal org")
 
-    # Create organization with slug
-    org = Organization(name=org_name, slug=slug)
+    # Save org
+    org = Organization(name=personal_org_name, slug=slug)
     db.add(org)
-    await db.flush()  # Populate org.id
+    await db.flush()  # Get org.id
 
-    # Create user
+    # === 2. Create User ===
     hashed_pw = get_password_hash(password)
-    user = User(email=email, hashed_password=hashed_pw, organization_id=org.id)
+    user = User(email=email, hashed_password=hashed_pw)
     db.add(user)
+    await db.flush()  # Get user.id
+
+    # === 3. Link user to org as OWNER + DEFAULT ===
+    await db.execute(
+        insert(user_organization),
+        [{
+            "user_id": user.id,
+            "organization_id": org.id,
+            "is_default": True,
+            "role": "owner"
+        }]
+    )
+    
     await db.commit()
     await db.refresh(user)
     return user
