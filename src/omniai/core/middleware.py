@@ -89,11 +89,16 @@ class TenantValidationMiddleware(BaseHTTPMiddleware):
             payload = jwt.decode(
                 token,
                 settings.JWT_SECRET_KEY,
-                algorithms=[settings.JWT_ALGORITHM]
+                algorithms=[settings.JWT_ALGORITHM],
+                options={
+                    "verify_exp": True,      # Always verify expiration (default, but explicit)
+                    "require": ["exp", "sub"]  # Enforce presence of critical claims
+                }
             )
             user_id = payload.get("sub")  # ← MUST be user.id, not email!
-            if not user_id:
-                raise JWTError("Missing user ID in token")
+            if not isinstance(user_id, str) or not user_id.startswith("usr_"):
+                raise JWTError("Invalid user ID format")
+            
         except JWTError:
             return JSONResponse(
                 status_code=401,

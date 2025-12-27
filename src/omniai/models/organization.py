@@ -1,6 +1,6 @@
 # src/omniai/models/organization.py
 import uuid
-import re
+import re # re: Short for "regular expressions" — used later to clean up text (e.g., turn "Ministry of Health!" into "ministry-of-health" for URLs).
 from sqlalchemy import String, Column, DateTime, Boolean, Text, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
