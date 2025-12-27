@@ -1,29 +1,45 @@
-# src/core/logging.py
+# src/omniai/core/logging.py
 import sys
+import logging
 import structlog
+from structlog import get_logger
 
 def configure_logging():
-    """Configure structlog for JSON output in production, console in dev."""
+    # Set root logger level
+    logging.basicConfig(
+        format="%(message)s",
+        stream=sys.stdout,
+        level=logging.INFO,
+    )
+
+    # Detect dev vs prod
+    is_dev = sys.stdout.isatty()
+
+    # Processors shared by both structlog and stdlib
+    shared_processors = [
+        structlog.contextvars.merge_contextvars,
+        structlog.processors.add_log_level,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+    ]
+
+    if is_dev:
+        renderer = structlog.dev.ConsoleRenderer()
+    else:
+        renderer = structlog.processors.JSONRenderer()
+
     structlog.configure(
-        processors=[
-            structlog.contextvars.merge_contextvars,
-            structlog.processors.add_log_level,
-            structlog.processors.StackInfoRenderer(),
-            structlog.dev.set_exc_info,
-            structlog.processors.TimeStamper(fmt="iso"),
-            # Render as JSON in production, console in dev
-            structlog.processors.JSONRenderer() #for machines
-            if not sys.stdout.isatty() # Is this output going to a real human terminal? e.g laptop
-            else structlog.dev.ConsoleRenderer(),
+        processors=shared_processors + [
+            renderer,
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(structlog.stdlib.LOG_LEVELS["info"]),
-        context_class=dict,
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
-# Call this early in app startup
-configure_logging()
+    # 🔥 CRITICAL: Route standard library logs through structlog
+    structlog.stdlib.recreate_defaults()
 
-# Export a logger instance for modules to use
-logger = structlog.get_logger()
+configure_logging()
+logger = get_logger()
