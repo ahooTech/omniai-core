@@ -56,11 +56,13 @@ from fastapi import FastAPI
 from omniai.api.v1 import auth, me
 from omniai.api.v1.health import router as health_router
 from omniai.api.v1.agriculture import router as agriculture_router
+from omniai.core.logging_middleware import LoggingMiddleware
 from omniai.core.middleware import TenantValidationMiddleware
 from omniai.db.session import engine
 from omniai.models.user import Base as UserBase
 from omniai.models.organization import Base as OrgBase
 from sqlalchemy.exc import OperationalError
+from omniai.core.logging import logger  # ← This runs configure_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -89,7 +91,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Middleware
+logger.info("OMNIAI Core starting up", version="1.0")
+
+# Order matters: Logging first → Tenant second
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(TenantValidationMiddleware)
 
 # Routers
