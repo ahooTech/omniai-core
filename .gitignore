@@ -69,3 +69,12 @@ build/
 
 # Secrets
 .env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Docker
+.dockerignore

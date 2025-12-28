@@ -1,3 +1,4 @@
+
 services:
   db:
     image: postgres:16
@@ -20,9 +21,11 @@ services:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/omniai
-      JWT_SECRET_KEY: dev-secret-change-in-prod
+    # ✅ Load ALL app config from .env — no duplication
+    # ✅ DO NOT hardcode JWT_SECRET_KEY here!
+    # Instead, load from your local .env file
+    env_file:
+      - .env  # ← This loads JWT_SECRET_KEY from your .env
     depends_on:
       db:
         condition: service_healthy

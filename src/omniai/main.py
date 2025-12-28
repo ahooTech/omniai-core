@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Antony Henry Oduor Onyango
+
 """
 OMNIAI Core Application Entry Point
 
@@ -62,7 +65,25 @@ from omniai.db.session import engine
 from omniai.models.user import Base as UserBase
 from omniai.models.organization import Base as OrgBase
 from sqlalchemy.exc import OperationalError
-from omniai.core.logging import logger  # ← This runs configure_logging()
+from omniai.core.logging import logger
+from omniai.core.config import settings
+
+# 🔒 Security & config audit at startup
+logger.info(
+    "application_startup_init",
+    version="1.0",
+    database_engine="postgresql",
+    async_driver="asyncpg",
+    token_expire_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+    jwt_algorithm=settings.JWT_ALGORITHM,
+    debug_mode=(len(settings.JWT_SECRET_KEY) < 32)  # Warn if key is too short!
+)
+
+if len(settings.JWT_SECRET_KEY) < 32:
+    logger.critical(
+        "security_risk_weak_jwt_secret",
+        message="JWT_SECRET_KEY is less than 32 bytes — rotate immediately!"
+    )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -72,17 +93,18 @@ async def lifespan(app: FastAPI):
             async with engine.begin() as conn:
                 await conn.run_sync(UserBase.metadata.create_all)
                 await conn.run_sync(OrgBase.metadata.create_all)
+            logger.info("database_initialized", tables_created=["users", "organizations", "user_organization"])
             break
-        except OperationalError:
-            print(f"DB not ready, retrying... ({i+1}/10)")
+        except OperationalError as e:
+            logger.warning("database_connection_retry", attempt=i+1, max_attempts=10, error=str(e))
             await asyncio.sleep(2)
     else:
+        logger.error("database_connection_failed", message="Failed to connect to database after 10 attempts")
         raise RuntimeError("Failed to connect to database after 10 attempts")
     
     yield
     await engine.dispose()
-
-
+    logger.info("application_shutdown", message="Database engine disposed")
 
 app = FastAPI(
     title="OMNIAI Core Platform",
@@ -91,9 +113,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-logger.info("OMNIAI Core starting up", version="1.0")
-
-# Order matters: Logging first → Tenant second
+# Middleware (order matters!)
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(TenantValidationMiddleware)
 
@@ -103,7 +123,9 @@ app.include_router(agriculture_router, prefix="/v1")
 app.include_router(auth.router, prefix="/v1/auth")
 app.include_router(me.router, prefix="/v1")
 
+logger.info("application_startup_complete", message="OMNIAI Core is ready to accept requests")
 
 def main():
     import uvicorn
-    uvicorn.run("omniai.main:app", host="0.0.0.0", port=8000, reload=True)
+    # ⚠️ Disable reload in production! (Only for dev)
+    uvicorn.run("omniai.main:app", host="0.0.0.0", port=8000, reload=False)

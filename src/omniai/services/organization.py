@@ -5,6 +5,8 @@
     Delete org endpoint
     Org settings
     Invite management 
+
+    Add logging here later
 """
 
 from sqlalchemy import select
