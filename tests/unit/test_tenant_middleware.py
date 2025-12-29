@@ -48,7 +48,7 @@ PRINCIPLES:
 - Tests must run in <100ms (unit, not integration)
 """
 
-
+"""
 import pytest
 from httpx import AsyncClient, ASGITransport
 from omniai.main import app
@@ -72,4 +72,7 @@ async def test_invalid_tenant_id():
     ) as ac:
         response = await ac.get("/v1/agriculture", headers={"x-tenant-id": ""})
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "INVALID_TENANT_ID"
+    assert response.json()["error"]["code"] == "INVALID_TENANT_ID"   
+
+
+    """

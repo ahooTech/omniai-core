@@ -1,11 +1,8 @@
-# src/omniai/models/user.py
 import uuid
-from sqlalchemy import String, Column, DateTime, Boolean, Table, ForeignKey, func
+from sqlalchemy import String, Column, DateTime, Boolean, Table, ForeignKey, func, Index
 from sqlalchemy.orm import relationship
 from .organization import Base
 
-# 🔗 Join table: connects users to organizations
-# Tracks: membership, default org, and role (owner/member)
 user_organization = Table(
     "user_organization",
     Base.metadata,
@@ -13,7 +10,14 @@ user_organization = Table(
     Column("organization_id", String, ForeignKey("organizations.id"), primary_key=True),
     Column("joined_at", DateTime(timezone=True), server_default=func.now()),
     Column("is_default", Boolean, default=False, nullable=False),
-    Column("role", String, nullable=False, default="member"),  # ← NEW: "owner" or "member"
+    Column("role", String, nullable=False, default="member"),
+    # ✅ Enforce one default org per user (PostgreSQL only)
+    Index(
+        "idx_user_default_org",
+        "user_id",
+        unique=True,
+        postgresql_where=Column("is_default") == True
+    )
 )
 
 class User(Base):
@@ -24,7 +28,6 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # 🔄 Link to organizations via the join table
     organizations = relationship(
         "Organization",
         secondary=user_organization,

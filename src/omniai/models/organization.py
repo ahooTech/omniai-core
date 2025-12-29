@@ -2,8 +2,7 @@
 import uuid
 import re # re: Short for "regular expressions" — used later to clean up text (e.g., turn "Ministry of Health!" into "ministry-of-health" for URLs).
 from sqlalchemy import String, Column, DateTime, Boolean, Text, func
-from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, declarative_base  # ✅ FIXED IMPORT
 
 Base = declarative_base()
 
@@ -17,9 +16,8 @@ class Organization(Base):
     description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # 🔄 Link back to users
     users = relationship(
         "User",
-        secondary="user_organization",  # ← matches table name above
+        secondary="user_organization",
         back_populates="organizations"
     )
