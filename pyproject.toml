@@ -66,3 +66,6 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["omniai*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"  # or "strict" — but if "strict", you MUST use @pytest.mark.asyncio

@@ -32,5 +32,25 @@ services:
     volumes:
       - ./src:/app/src
 
+  # Test service
+  test:
+    build:
+      context: .
+      args:
+        INSTALL_DEV: "true"
+    # Removed .env.test.docker 
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        # Wait a bit more to be safe
+        sleep 3 &&
+        # Create test DB if not exists
+        PGPASSWORD=postgres createdb -h db -U postgres omniai_test 2>/dev/null || true &&
+        # Run tests
+        pytest -v
+      "
+
 volumes:
   postgres_data:

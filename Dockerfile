@@ -5,24 +5,31 @@
 
 FROM python:3.11-slim
 
-
 WORKDIR /app
 
-# ✅ COPY EVERYTHING needed for editable install BEFORE running pip
+# Copy all source and config for editable install
 COPY pyproject.toml README.md LICENSE ./
 COPY src/ ./src/
 COPY scripts/ ./scripts/
 
-# ✅ Now install — all files are present. Install dependencies AS ROOT (so pip can write)
+# 💡 New: Accept a build arg to decide whether to install test dependencies
+ARG INSTALL_DEV=false
+
+# Install main dependencies (always)
 RUN pip install --no-cache-dir -e .
 
-# Create non-root user after install
+# Install test dependencies only if requested
+RUN if [ "$INSTALL_DEV" = "true" ]; then \
+      pip install --no-cache-dir -e ".[dev]"; \
+    fi
+
+# Create non-root user
 RUN addgroup --system app && adduser --system --group app
 
 # Make the app user own the directory (optional but clean)
 # RUN chown -R app:app /app
 
-# Switch to non-root user for runtime
+# Switch to non-root user
 USER app
 
 EXPOSE 8000
