@@ -69,3 +69,10 @@ include = ["omniai*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"  # or "strict" — but if "strict", you MUST use @pytest.mark.asyncio
+cache_dir = "/tmp/.pytest_cache"
+
+# This ensures pytest always looks in tests/, even if run from weird directories.
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
