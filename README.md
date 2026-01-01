@@ -110,3 +110,14 @@ MIT © Antony Henry Oduor Onyango
 
 # https://github.com/ahooTech/omniai-core.git
 
+# docker-compose -f docker-compose-test.yml down
+
+# docker-compose down
+
+# docker-compose -f docker-compose-test.yml build --no-cache
+
+# docker-compose build --no-cache
+
+# docker-compose -f docker-compose-test.yml up --exit-code-from test
+
+# docker-compose up
