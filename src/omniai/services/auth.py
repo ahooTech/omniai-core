@@ -1,10 +1,7 @@
 # src/omniai/services/auth.py
 import re
-from datetime import datetime, timezone, timedelta
-from sqlalchemy import select, insert
-#from passlib.context import CryptContext
-from jose import jwt
-from omniai.core.config import settings
+
+from sqlalchemy import select, insert 
 from omniai.models.user import User, user_organization
 from omniai.models.organization import Organization
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,16 +20,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     plain_bytes = plain_password.encode("utf-8")[:72]
     hashed_bytes = hashed_password.encode("utf-8")
     return bcrypt.checkpw(plain_bytes, hashed_bytes)
-
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    if expires_delta is None:
-        # ✅ Use value from config
-        expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    expire = datetime.now(timezone.utc) + expires_delta
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-
+ 
 
 async def authenticate_user(db: AsyncSession, email: str, password: str):
     logger.debug("authenticate_user_start", email=email)

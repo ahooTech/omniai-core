@@ -52,6 +52,7 @@ IMPORTANT: This file should remain CLEAN.
 - Only wiring: middlewares, routers, lifecycle events
 """
 
+
 # src/omniai/main.py
 import asyncio
 from contextlib import asynccontextmanager

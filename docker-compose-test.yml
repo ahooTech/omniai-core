@@ -1,0 +1,71 @@
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: omniai_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    #volumes:
+      #- postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    # ✅ Load ALL app config from .env — no duplication
+    # ✅ DO NOT hardcode JWT_SECRET_KEY here!
+    # 👇 CRITICAL: Use .env.test.docker so app connects to omniai_test
+    env_file:
+      - .env.test.docker   # ← This loads JWT_SECRET_KEY from your .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Test service
+  test:
+    build:
+      context: .
+      args:
+        INSTALL_DEV: "true"
+    env_file:
+      - .env.test.docker  
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      # So psql/pg_isready/dropdb don't prompt for password
+      PGPASSWORD: postgres
+    command: >
+      sh -c "
+        echo '⏳ Waiting for DB...' &&
+        pg_isready -h db -U postgres &&
+        echo '🚀 Waiting for app health check...' &&
+        until curl -s --fail http://app:8000/v1/health; do
+          echo '⏳ App not ready...';
+          sleep 1;
+        done &&
+        echo '✅ App is ready!' &&
+        echo '🧪 Running tests...' &&
+        pytest -v
+      "
+
+volumes:
+  postgres_data:
+

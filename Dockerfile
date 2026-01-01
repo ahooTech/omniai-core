@@ -5,12 +5,22 @@
 
 FROM python:3.11-slim
 
+# Install system dependencies FIRST (best practice) to be used by database commands in test
+# ✅ Install ALL system dependencies in ONE layer
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        postgresql-client \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+
 WORKDIR /app
 
 # Copy all source and config for editable install
 COPY pyproject.toml README.md LICENSE ./
 COPY src/ ./src/
-COPY tests/ .tests/ 
+COPY tests/ ./tests/ 
 COPY scripts/ ./scripts/
 
 # 💡 New: Accept a build arg to decide whether to install test dependencies

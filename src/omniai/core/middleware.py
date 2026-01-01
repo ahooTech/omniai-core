@@ -49,16 +49,15 @@ NOTE: Only implement features when their prerequisite skills are mastered.
 Do not pre-optimize. Build incrementally.
 """
 
-from fastapi import Request, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import Request
 from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi import Request
-from starlette.responses import JSONResponse
-from jose import jwt, JWTError
-from omniai.core.config import settings
+from starlette.responses import JSONResponse 
+from jose import JWTError
+from omniai.core.jwt import decode_token
 from omniai.db.session import AsyncSessionLocal
 from omniai.models.user import user_organization
+from omniai.models.organization import Organization
 from omniai.core.logging import logger
 from structlog.contextvars import bind_contextvars 
 
@@ -89,15 +88,8 @@ class TenantValidationMiddleware(BaseHTTPMiddleware):
 
         token = auth_header[7:]
         try:
-            payload = jwt.decode(
-                token,
-                settings.JWT_SECRET_KEY,
-                algorithms=[settings.JWT_ALGORITHM],
-                options={"verify_exp": True, "require": ["exp", "sub"]}
-            )
-            user_id = payload.get("sub")
-            if not isinstance(user_id, str) or not user_id.startswith("usr_"):
-                raise JWTError("Invalid user ID format")
+            payload = decode_token(token)
+            user_id = payload["sub"]
         except JWTError as e:
             logger.warn("auth_invalid_token", url=str(request.url), error=str(e))
             return JSONResponse(
@@ -105,12 +97,14 @@ class TenantValidationMiddleware(BaseHTTPMiddleware):
                 content={"error": {"code": "INVALID_TOKEN", "message": "Invalid or expired token"}}
             )
 
-        # === STEP 2: Get tenant from X-Tenant-ID header ===
+        # === STEP 2–3: Handle tenant resolution + validation in ONE DB session ===
         tenant_id = request.headers.get("x-tenant-id")
         used_default = False
-        if not tenant_id:
-            logger.info("tenant_missing_fallback_to_default", user_id=user_id)
-            async with AsyncSessionLocal() as db:
+
+        async with AsyncSessionLocal() as db:
+            # --- Resolve tenant_id if missing ---
+            if not tenant_id:
+                logger.info("tenant_missing_fallback_to_default", user_id=user_id)
                 result = await db.execute(
                     select(user_organization.c.organization_id)
                     .where(
@@ -123,29 +117,39 @@ class TenantValidationMiddleware(BaseHTTPMiddleware):
                     logger.warn("user_no_default_org", user_id=user_id)
                     return JSONResponse(
                         status_code=403,
-                        content={"error": {"code": "NO_DEFAULT_ORG", "message": "User has no default organization"}}
+                        content={"error": {"code": "NO_DEFAULT_ORG", "message": "User has no default organization."}}
                     )
                 tenant_id = default_org
                 used_default = True
+            else:
+                # --- Validate org exists ---
+                org_exists = await db.execute(
+                    select(Organization.id).where(Organization.id == tenant_id)
+                )
+                if org_exists.scalar_one_or_none() is None:
+                    logger.warn("tenant_not_found", tenant_id=tenant_id, user_id=user_id)
+                    return JSONResponse(
+                        status_code=404,
+                        content={"error": {"code": "ORG_NOT_FOUND", "message": "Organization not found"}}
+                    )
 
-        # === STEP 3: Validate user is member of tenant_id ===
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
+            # --- Validate user is a member of the resolved tenant_id ---
+            membership = await db.execute(
                 select(user_organization.c.organization_id)
                 .where(
                     user_organization.c.user_id == user_id,
                     user_organization.c.organization_id == tenant_id
                 )
             )
-            if result.scalar_one_or_none() is None:
+            if membership.scalar_one_or_none() is None:
                 logger.warn("access_denied_not_org_member", user_id=user_id, tenant_id=tenant_id)
                 return JSONResponse(
                     status_code=403,
                     content={"error": {"code": "NOT_ORG_MEMBER", "message": "Not a member of the specified organization"}}
                 )
 
-        # === STEP 4: Bind user/tenant to structured logs + attach to request === Enrich logs with user and tenant
-        bind_contextvars(user_id=user_id, tenant_id=tenant_id)  # ← MAGIC: all future logs get these!
+        # === STEP 4: Bind to logs and request state ===
+        bind_contextvars(user_id=user_id, tenant_id=tenant_id)
         request.state.user_id = user_id
         request.state.tenant_id = tenant_id
 

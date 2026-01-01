@@ -4,7 +4,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from omniai.db.session import get_db
-from omniai.services.auth import authenticate_user, create_access_token, create_user_with_org
+from omniai.services.auth import authenticate_user, create_user_with_org
+from omniai.core.jwt import create_access_token
 from omniai.api.v1.schemas import UserCreate, Token
 from omniai.models.user import User
 from omniai.core.logging import logger
@@ -33,6 +34,9 @@ async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         logger.exception("signup_error", email=user.email, error=str(e))
         raise HTTPException(status_code=500, detail="Signup failed")
+    
+
+    
 
 @router.post("/login", response_model=Token)
 async def login(

@@ -16,7 +16,6 @@
 # No corruption: Two people saving data at the same time won’t overwrite each other.
 # Total privacy: The system only sees your data when you’re actively using it.
 
-
 # omniai/db/session.py
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -41,9 +40,10 @@ AsyncSessionLocal = sessionmaker(
 )
 
 async def get_db():
-    """
-    FastAPI dependency for DB sessions.
-    Automatically closes session after request.
-    """
+    
+    #FastAPI dependency for DB sessions.
+    #Automatically closes session after request.
     async with AsyncSessionLocal() as session:
         yield session
+
+
