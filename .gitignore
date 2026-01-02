@@ -39,6 +39,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.mypy_cache/
 cover/
 
 # Virtual Environments
@@ -78,3 +79,6 @@ logs/
 
 # Docker
 .dockerignore.env.test 
+
+# Linter caches
+.ruff_cache/
