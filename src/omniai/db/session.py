@@ -17,8 +17,9 @@
 # Total privacy: The system only sees your data when you’re actively using it.
 
 # omniai/db/session.py
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+
 from omniai.core.config import settings
 
 # Production-grade async engine
@@ -40,7 +41,7 @@ AsyncSessionLocal = sessionmaker(
 )
 
 async def get_db():
-    
+
     #FastAPI dependency for DB sessions.
     #Automatically closes session after request.
     async with AsyncSessionLocal() as session:

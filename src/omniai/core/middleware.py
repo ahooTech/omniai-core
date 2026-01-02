@@ -50,16 +50,17 @@ Do not pre-optimize. Build incrementally.
 """
 
 from fastapi import Request
+from jose import JWTError
 from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse 
-from jose import JWTError
+from starlette.responses import JSONResponse
+from structlog.contextvars import bind_contextvars
+
 from omniai.core.jwt import decode_token
-from omniai.db.session import AsyncSessionLocal
-from omniai.models.user import user_organization
-from omniai.models.organization import Organization
 from omniai.core.logging import logger
-from structlog.contextvars import bind_contextvars 
+from omniai.db.session import AsyncSessionLocal
+from omniai.models.organization import Organization
+from omniai.models.user import user_organization
 
 # Public paths (no auth needed)
 PUBLIC_PATHS = {
@@ -109,7 +110,7 @@ class TenantValidationMiddleware(BaseHTTPMiddleware):
                     select(user_organization.c.organization_id)
                     .where(
                         user_organization.c.user_id == user_id,
-                        user_organization.c.is_default == True
+                        user_organization.c.is_default
                     )
                 )
                 default_org = result.scalar_one_or_none()

@@ -1,6 +1,9 @@
-from datetime import datetime, timezone, timedelta
-from jose import jwt, JWTError
+from datetime import datetime, timedelta, timezone
+
+from jose import JWTError, jwt
+
 from omniai.core.config import settings
+
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
@@ -28,4 +31,3 @@ def decode_token(token: str) -> dict:
         return payload
     except JWTError as e:
         raise JWTError(f"Token decode failed: {str(e)}") from e
-    

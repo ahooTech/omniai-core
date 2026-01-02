@@ -1,8 +1,9 @@
 # multi database multi country
 # security via JWT for each organizations .env
 # config.py
-from pydantic_settings import BaseSettings
 from pydantic import ConfigDict, Field
+from pydantic_settings import BaseSettings
+
 
 class Settings(BaseSettings):
     DATABASE_URL: str = Field(

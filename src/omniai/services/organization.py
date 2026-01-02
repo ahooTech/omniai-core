@@ -4,14 +4,15 @@
 
     Delete org endpoint
     Org settings
-    Invite management 
-
+    Invite management
     Add logging here later
 """
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from omniai.models.user import user_organization
+
 
 async def get_user_org_role(db: AsyncSession, user_id: str, org_id: str) -> str | None:
     result = await db.execute(

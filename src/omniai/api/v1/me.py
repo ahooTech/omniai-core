@@ -2,11 +2,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from omniai.db.session import get_db
-from omniai.models.user import User, user_organization
-from omniai.models.organization import Organization
-from omniai.api.v1.schemas import UserMe, OrganizationSummary
+
+from omniai.api.v1.schemas import OrganizationSummary, UserMe
 from omniai.core.logging import logger
+from omniai.db.session import get_db
+from omniai.models.organization import Organization
+from omniai.models.user import User, user_organization
 
 router = APIRouter()
 

@@ -56,18 +56,20 @@ IMPORTANT: This file should remain CLEAN.
 # src/omniai/main.py
 import asyncio
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+from sqlalchemy.exc import OperationalError
+
 from omniai.api.v1 import auth, me
-from omniai.api.v1.health import router as health_router
 from omniai.api.v1.agriculture import router as agriculture_router
+from omniai.api.v1.health import router as health_router
+from omniai.core.config import settings
+from omniai.core.logging import logger
 from omniai.core.logging_middleware import LoggingMiddleware
 from omniai.core.middleware import TenantValidationMiddleware
 from omniai.db.session import engine
-from omniai.models.user import Base as UserBase
 from omniai.models.organization import Base as OrgBase
-from sqlalchemy.exc import OperationalError
-from omniai.core.logging import logger
-from omniai.core.config import settings
+from omniai.models.user import Base as UserBase
 
 # 🔒 Security & config audit at startup
 logger.info(
@@ -102,7 +104,7 @@ async def lifespan(app: FastAPI):
     else:
         logger.error("database_connection_failed", message="Failed to connect to database after 10 attempts")
         raise RuntimeError("Failed to connect to database after 10 attempts")
-    
+
     yield
     await engine.dispose()
     logger.info("application_shutdown", message="Database engine disposed")

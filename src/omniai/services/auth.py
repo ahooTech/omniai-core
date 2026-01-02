@@ -1,12 +1,14 @@
 # src/omniai/services/auth.py
 import re
 
-from sqlalchemy import select, insert 
-from omniai.models.user import User, user_organization
-from omniai.models.organization import Organization
-from sqlalchemy.ext.asyncio import AsyncSession
 import bcrypt
+from sqlalchemy import insert, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from omniai.core.logging import logger
+from omniai.models.organization import Organization
+from omniai.models.user import User, user_organization
+
 
 def get_password_hash(password: str) -> str:
     # ✅ Truncate to 72 bytes (bcrypt limit)
@@ -20,7 +22,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     plain_bytes = plain_password.encode("utf-8")[:72]
     hashed_bytes = hashed_password.encode("utf-8")
     return bcrypt.checkpw(plain_bytes, hashed_bytes)
- 
+
 
 async def authenticate_user(db: AsyncSession, email: str, password: str):
     logger.debug("authenticate_user_start", email=email)
@@ -50,11 +52,11 @@ async def create_user_with_org(db: AsyncSession, email: str, password: str):
     # In future, infer from email domain or IP — for now, just label
     logger.info("create_user_with_org_start", email=email)
     personal_org_name = f"Personal – {email}"
-    
+
     # Generate slug
     normalized = re.sub(r"[^a-z0-9\s-]", "", personal_org_name.lower())
     base_slug = re.sub(r"[-\s]+", "-", normalized).strip("-")[:26]
-    
+
     slug = base_slug
     counter = 1
     while True:
@@ -90,7 +92,7 @@ async def create_user_with_org(db: AsyncSession, email: str, password: str):
             "role": "owner"
         }]
     )
-    
+
     await db.commit()
     await db.refresh(user)
     logger.info("create_user_with_org_success", user_id=str(user.id), org_id=str(org.id), email=email)

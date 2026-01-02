@@ -1,6 +1,8 @@
 import uuid
-from sqlalchemy import String, Column, DateTime, Boolean, Table, ForeignKey, func, Index
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Table, func
 from sqlalchemy.orm import relationship
+
 from .organization import Base
 
 user_organization = Table(
@@ -16,7 +18,7 @@ user_organization = Table(
         "idx_user_default_org",
         "user_id",
         unique=True,
-        postgresql_where=Column("is_default") == True
+        postgresql_where=Column("is_default")
     )
 )
 

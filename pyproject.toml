@@ -61,6 +61,8 @@ dev = [
     "bandit>=1.7.9",                   # ← NEW: security linter
     "httpx>=0.28.0",                   # already in main, but safe to repeat
     "python-dotenv>=1.0.1",
+    "safety>=2.3.0,<3.0",
+    
 ]
 
 [tool.setuptools.packages.find]
@@ -76,3 +78,13 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+[tool.ruff]
+lint.select = ["E", "W", "F", "I", "B", "SIM", "TID", "C4"]
+lint.ignore = ["E501"]  # allow long lines
+line-length = 88
+
+[tool.ruff.lint.per-file-ignores]
+"src/omniai/tests/unit/test_auth.py" = ["B008"]
+"src/omniai/api/v1/me.py" = ["B008"]
+"src/omniai/api/v1/auth.py" = ["B008"]

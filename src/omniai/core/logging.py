@@ -1,8 +1,10 @@
 # src/omniai/core/logging.py
-import sys
 import logging
+import sys
+
 import structlog
 from structlog import get_logger
+
 
 def configure_logging():
     # Set root logger level

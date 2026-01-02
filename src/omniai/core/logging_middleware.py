@@ -1,10 +1,13 @@
 # omniai/core/middleware/logging_middleware.py
 import uuid
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 from structlog.contextvars import bind_contextvars, clear_contextvars
+
 from omniai.core.logging import logger
+
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
