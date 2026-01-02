@@ -53,9 +53,12 @@ IMPORTANT: This file should remain CLEAN.
 """
 
 
+
+
 # src/omniai/main.py
 import asyncio
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from sqlalchemy.exc import OperationalError
@@ -89,7 +92,7 @@ if len(settings.JWT_SECRET_KEY) < 32:
     )
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Wait for DB to be ready
     for i in range(10):
         try:
@@ -108,6 +111,7 @@ async def lifespan(app: FastAPI):
     yield
     await engine.dispose()
     logger.info("application_shutdown", message="Database engine disposed")
+
 
 app = FastAPI(
     title="OMNIAI Core Platform",
@@ -128,7 +132,8 @@ app.include_router(me.router, prefix="/v1")
 
 logger.info("application_startup_complete", message="OMNIAI Core is ready to accept requests")
 
-def main():
+
+def main() -> None:
     import uvicorn
     # ⚠️ Disable reload in production! (Only for dev)
     uvicorn.run("omniai.main:app", host="0.0.0.0", port=8000, reload=False)

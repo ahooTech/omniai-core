@@ -42,15 +42,15 @@ async def test_full_auth_flow_with_default_tenant():
 async def test_user_cannot_access_other_tenant():
     async with httpx.AsyncClient(base_url=BASE_URL) as ac:
         # User A
-        await ac.post("/v1/auth/signup", json={"email": "usera@test.com", "password": "Pass123!"})
-        login_a = await ac.post("/v1/auth/login", data={"username": "usera@test.com", "password": "Pass123!"})
+        await ac.post("/v1/auth/signup", json={"email": "usera@test.com", "password": "SecurePass123!"})
+        login_a = await ac.post("/v1/auth/login", data={"username": "usera@test.com", "password": "SecurePass123!"})
         token_a = login_a.json()["access_token"]
         #me_a = await ac.get("/v1/me", headers={"Authorization": f"Bearer {token_a}"})
         #org_a = me_a.json()["active_organization_id"]
 
         # User B
-        await ac.post("/v1/auth/signup", json={"email": "userb@test.com", "password": "Pass123!"})
-        login_b = await ac.post("/v1/auth/login", data={"username": "userb@test.com", "password": "Pass123!"})
+        await ac.post("/v1/auth/signup", json={"email": "userb@test.com", "password": "SecurePass123!"})
+        login_b = await ac.post("/v1/auth/login", data={"username": "userb@test.com", "password": "SecurePass123!"})
         token_b = login_b.json()["access_token"]
         me_b = await ac.get("/v1/me", headers={"Authorization": f"Bearer {token_b}"})
         org_b = me_b.json()["active_organization_id"]
@@ -100,8 +100,8 @@ async def test_protected_route_with_malformed_token():
 async def test_signup_duplicate_email():
     async with httpx.AsyncClient(base_url=BASE_URL) as ac:
         email = "dup@test.com"
-        await ac.post("/v1/auth/signup", json={"email": email, "password": "Pass123!"})
-        r2 = await ac.post("/v1/auth/signup", json={"email": email, "password": "AnotherPass!"})
+        await ac.post("/v1/auth/signup", json={"email": email, "password": "SecurePass123!"})
+        r2 = await ac.post("/v1/auth/signup", json={"email": email, "password": "AnotherPass123!"})
         assert r2.status_code == 400
         assert "email already registered" in r2.json()["detail"].lower()
 
@@ -113,8 +113,8 @@ async def test_access_nonexistent_organization():
     async with httpx.AsyncClient(base_url=BASE_URL) as ac:
         # Signup + login
         email = "nonexist@test.com"
-        await ac.post("/v1/auth/signup", json={"email": email, "password": "Pass123!"})
-        login = await ac.post("/v1/auth/login", data={"username": email, "password": "Pass123!"})
+        await ac.post("/v1/auth/signup", json={"email": email, "password": "SecurePass123!"})
+        login = await ac.post("/v1/auth/login", data={"username": email, "password": "SecurePass123!"})
         token = login.json()["access_token"]
 
         # Try to access a fake org UUID
@@ -153,7 +153,7 @@ def test_decode_invalid_token():
 async def test_user_with_no_default_org_fails_gracefully():
     async with httpx.AsyncClient(base_url=BASE_URL) as ac:
         email = "nodefault@test.com"
-        password = "Pass123!"
+        password = "SecurePass123!"
 
         await ac.post("/v1/auth/signup", json={"email": email, "password": password})
         login = await ac.post("/v1/auth/login", data={"username": email, "password": password})
@@ -200,7 +200,6 @@ def test_password_hashing():
     assert verify_password("Wrong", hashed) is False
 
 
-"""
 # Password strength test 13
 @pytest.mark.asyncio
 async def test_signup_weak_password():
@@ -209,7 +208,7 @@ async def test_signup_weak_password():
         assert r.status_code == 422
         assert "Password must be at least 8 characters" in r.json()["detail"][0]["msg"]
 
-"""
+
 
 
 

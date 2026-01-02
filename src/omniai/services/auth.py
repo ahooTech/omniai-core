@@ -1,6 +1,6 @@
 # src/omniai/services/auth.py
 import re
-
+from typing import Optional
 import bcrypt
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,13 +18,15 @@ def get_password_hash(password: str) -> str:
     hashed = bcrypt.hashpw(truncated, bcrypt.gensalt())
     return hashed.decode("utf-8")
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     plain_bytes = plain_password.encode("utf-8")[:72]
     hashed_bytes = hashed_password.encode("utf-8")
     return bcrypt.checkpw(plain_bytes, hashed_bytes)
 
 
-async def authenticate_user(db: AsyncSession, email: str, password: str):
+
+async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
     logger.debug("authenticate_user_start", email=email)
 
     result = await db.execute(select(User).where(User.email == email))
@@ -32,24 +34,24 @@ async def authenticate_user(db: AsyncSession, email: str, password: str):
 
     if not user:
         logger.debug("authenticate_user_user_not_found", email=email)
-        return False
+        return None  # ✅ Correct: None means "not authenticated"
 
-    is_valid = verify_password(password, user.hashed_password)
-    if not is_valid:
+    if not verify_password(password, user.hashed_password):
         logger.debug("authenticate_user_password_invalid", email=email)
-        return False
+        return None  # ✅ Still None
 
     logger.debug("authenticate_user_success", user_id=str(user.id), email=email)
-    return user
+    return user  # ✅ Only ever returns User or None
 
-async def create_user_with_org(db: AsyncSession, email: str, password: str):
+
+async def create_user_with_org(db: AsyncSession, email: str, password: str) -> User:
     """
     Creates a new user with a Personal organization.
     The user is the OWNER of this org, and it is set as their DEFAULT.
     """
-    # === 1. Create Personal Organization ===
     # Later: org_name = f"Personal – {email} ({country_code})"
     # In future, infer from email domain or IP — for now, just label
+    # === 1. Create Personal Organization ===
     logger.info("create_user_with_org_start", email=email)
     personal_org_name = f"Personal – {email}"
 

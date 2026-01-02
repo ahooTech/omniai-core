@@ -1,4 +1,5 @@
-# src/omniai/api/v1/auth.py
+## src/omniai/api/v1/auth.py
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
@@ -14,7 +15,7 @@ from omniai.services.auth import authenticate_user, create_user_with_org
 router = APIRouter()
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
-async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
+async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     logger.info("signup_attempt", email=user.email)
 
     result = await db.execute(select(User).where(User.email == user.email))
@@ -34,19 +35,17 @@ async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
         return {"msg": "User created"}
     except Exception as e:
         logger.exception("signup_error", email=user.email, error=str(e))
-        raise HTTPException(status_code=500, detail="Signup failed") from None
-
-
+        raise HTTPException(status_code=500, detail="Signup failed")
 
 
 @router.post("/login", response_model=Token)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
-):
+) -> Token:
     logger.info("login_attempt", email=form_data.username)
 
-    user = await authenticate_user(db, form_data.username, form_data.password)
+    user: Optional[User] = await authenticate_user(db, form_data.username, form_data.password)
     if not user:
         logger.warn("login_failed", email=form_data.username, reason="invalid_credentials")
         raise HTTPException(
@@ -55,7 +54,7 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": user.id})
+    access_token = create_access_token(data={"sub": str(user.id)})  # ensure str
     logger.info("login_success", user_id=str(user.id), email=user.email)
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return Token(access_token=access_token, token_type="bearer")
