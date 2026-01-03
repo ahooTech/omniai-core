@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir -e .
 RUN if [ "$INSTALL_DEV" = "true" ]; then \
       pip install --no-cache-dir -e ".[dev]"; \
     fi
-    
+
 COPY scripts/start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
@@ -41,7 +41,7 @@ RUN chmod +x /app/start.sh
 RUN addgroup --system app && adduser --system --group app
 
 # Make the app user own the directory (optional but clean)
-# RUN chown -R app:app /app
+RUN chown -R app:app /app
 
 # Switch to non-root user
 USER app
