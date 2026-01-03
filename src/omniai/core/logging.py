@@ -1,7 +1,7 @@
 # src/omniai/core/logging.py
 import logging
 import sys
-from typing import Union, Callable, Any, MutableMapping, Mapping, Iterable, Tuple
+from typing import Any, Callable, Mapping, MutableMapping, Tuple, Union
 
 import structlog
 from structlog import get_logger
@@ -35,11 +35,7 @@ def configure_logging() -> None:
     ]
 
     # Annotate renderer with union type
-    renderer: Union[ConsoleRenderer, JSONRenderer]
-    if is_dev:
-        renderer = ConsoleRenderer()
-    else:
-        renderer = JSONRenderer()
+    renderer = ConsoleRenderer() if is_dev else JSONRenderer()
 
     # Final processor list
     all_processors: list[ProcessorType] = shared_processors + [renderer]
@@ -57,57 +53,3 @@ def configure_logging() -> None:
 
 configure_logging()
 logger = get_logger()
-
-
-
-
-"""
-# src/omniai/core/logging.py
-import logging
-import sys
-
-import structlog
-from structlog import get_logger
-
-
-def configure_logging():
-    # Set root logger level
-    logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stdout,
-        level=logging.INFO,
-    )
-
-    # Detect dev vs prod
-    is_dev = sys.stdout.isatty()
-
-    # Processors shared by both structlog and stdlib
-    shared_processors = [
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-    ]
-
-    if is_dev:
-        renderer = structlog.dev.ConsoleRenderer()
-    else:
-        renderer = structlog.processors.JSONRenderer()
-
-    structlog.configure(
-        processors=shared_processors + [
-            renderer,
-        ],
-        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        cache_logger_on_first_use=True,
-    )
-
-    # 🔥 CRITICAL: Route standard library logs through structlog
-    structlog.stdlib.recreate_defaults()
-
-configure_logging()
-logger = get_logger()
-
-"""

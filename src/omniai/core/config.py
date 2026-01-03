@@ -1,8 +1,10 @@
 # src/omniai/core/config.py
 # multi database multi country
 from typing import Any
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from pydantic import Field, ValidationError
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     DATABASE_URL: str = Field(
@@ -38,4 +40,4 @@ except ValidationError as e:
     print("❌ Missing required environment variables:")
     for error in e.errors():
         print(f"  - {error['loc'][0]}: {error['msg']}")
-    raise SystemExit(1)
+    raise SystemExit(1) from None

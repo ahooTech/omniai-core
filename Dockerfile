@@ -33,6 +33,9 @@ RUN pip install --no-cache-dir -e .
 RUN if [ "$INSTALL_DEV" = "true" ]; then \
       pip install --no-cache-dir -e ".[dev]"; \
     fi
+    
+COPY scripts/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
 
 # Create non-root user
 RUN addgroup --system app && adduser --system --group app
@@ -43,6 +46,14 @@ RUN addgroup --system app && adduser --system --group app
 # Switch to non-root user
 USER app
 
+# ✅ Set runtime configuration via environment variables
+ENV UVICORN_HOST=0.0.0.0
+ENV UVICORN_PORT=8000
+ENV UVICORN_RELOAD=false
+
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "omniai.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+
+CMD ["/app/start.sh"]
+# CMD ["python", "-m", "uvicorn", "omniai.main:app", "--host", "0.0.0.0", "--port", "8000"]

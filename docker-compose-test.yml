@@ -56,16 +56,21 @@ services:
       sh -c "
         echo '⏳ Waiting for DB...' &&
         pg_isready -h db -U postgres &&
+
         echo '🚀 Waiting for app health check...' &&
-        until curl -s --fail http://app:8000/v1/health; do
-          echo '⏳ App not ready...';
-          sleep 1;
-        done &&
+        timeout 30 sh -c 'while ! curl -s --fail http://app:8000/v1/health; do sleep 1; done' &&
+
         echo '✅ App is ready!' &&
+
+        echo '🔍 Running static analysis...' &&
+        ruff check . &&
+        mypy src/ &&
+        bandit -r src/ -ll -x \"**/migrations/**,**/__pycache__/**\" &&
+        safety check --full-report &&
+
         echo '🧪 Running tests...' &&
-        pytest -v
+        pytest -v --tb=short
       "
 
 volumes:
   postgres_data:
-

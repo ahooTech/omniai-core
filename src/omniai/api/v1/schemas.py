@@ -8,7 +8,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    
+
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
@@ -23,7 +23,7 @@ class UserCreate(BaseModel):
         if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
             raise ValueError("Password must contain a special character")
         return v
- 
+
 
 class Token(BaseModel):
     access_token: str

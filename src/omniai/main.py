@@ -57,9 +57,11 @@ IMPORTANT: This file should remain CLEAN.
 
 # src/omniai/main.py
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+import uvicorn
 from fastapi import FastAPI
 from sqlalchemy.exc import OperationalError
 
@@ -133,7 +135,14 @@ app.include_router(me.router, prefix="/v1")
 logger.info("application_startup_complete", message="OMNIAI Core is ready to accept requests")
 
 
-def main() -> None:
-    import uvicorn
-    # ⚠️ Disable reload in production! (Only for dev)
-    uvicorn.run("omniai.main:app", host="0.0.0.0", port=8000, reload=False)
+if __name__ == "__main__":
+    host = os.getenv("UVICORN_HOST", "127.0.0.1")  # Default to localhost in dev
+    port = int(os.getenv("UVICORN_PORT", "8000"))
+    reload = os.getenv("UVICORN_RELOAD", "false").lower() == "true"
+
+    uvicorn.run(
+        "omniai.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+    )

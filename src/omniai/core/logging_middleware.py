@@ -1,5 +1,6 @@
-# omniai/core/middleware/logging_middleware.py
+# omniai/core/logging_middleware.py
 import uuid
+from typing import Awaitable, Callable
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -10,7 +11,7 @@ from omniai.core.logging import logger
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Clear any leftover context from previous requests (important in async!)
         clear_contextvars()
 
@@ -23,7 +24,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "http_request_start",
             method=request.method,
             url=str(request.url),
-            client_ip=request.client.host if request.client else "unknown"
+            client_ip=request.client.host if request.client else "unknown",
         )
 
         try:
@@ -32,7 +33,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             logger.info(
                 "http_request_end",
                 status_code=response.status_code,
-                content_length=getattr(response, "content_length", 0)
+                content_length=getattr(response, "content_length", 0),
             )
             return response
         except Exception as e:

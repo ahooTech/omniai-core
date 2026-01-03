@@ -15,7 +15,7 @@ router = APIRouter()
 async def read_users_me(
     request: Request,
     db: AsyncSession = Depends(get_db)
-):
+) -> UserMe:
     user_id = getattr(request.state, "user_id", None)
     tenant_id = getattr(request.state, "tenant_id", None)
 

@@ -31,8 +31,9 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Column, DateTime, String, Text, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import Boolean, DateTime, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base
 
 if TYPE_CHECKING:
@@ -43,8 +44,8 @@ class Organization(Base):
     __tablename__ = "organizations"
 
     id: Mapped[str] = mapped_column(
-        String, 
-        primary_key=True, 
+        String,
+        primary_key=True,
         default=lambda: "org_" + uuid.uuid4().hex
     )
     name: Mapped[str] = mapped_column(String, nullable=False, index=True)
@@ -52,7 +53,7 @@ class Organization(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), 
+        DateTime(timezone=True),
         server_default=func.now()
     )
 

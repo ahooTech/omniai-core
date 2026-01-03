@@ -1,6 +1,7 @@
 # src/omniai/services/auth.py
 import re
 from typing import Optional
+
 import bcrypt
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession

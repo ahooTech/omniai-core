@@ -138,13 +138,13 @@ def test_jwt_roundtrip():
 
 # tests if token format is checked 9
 def test_decode_invalid_token():
-    from jose import JWTError
+    from jwt import PyJWTError
 
     from omniai.core.jwt import decode_token
     try:
         decode_token("invalid.token.here")
         raise AssertionError("Should have raised JWTError")
-    except JWTError:
+    except PyJWTError:
         pass  # Expected
 
 

@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict
+from typing import Any
 
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 
 from omniai.core.config import settings
 
@@ -25,7 +26,7 @@ def decode_token(token: str) -> dict[str, Any]:
         )
         user_id = payload.get("sub")
         if not isinstance(user_id, str) or not user_id.startswith("usr_"):
-            raise JWTError("Invalid user ID format")
+            raise PyJWTError("Invalid user ID format")
         return payload
-    except JWTError as e:
-        raise JWTError(f"Token decode failed: {str(e)}") from e
+    except PyJWTError as e:
+        raise PyJWTError(f"Token decode failed: {str(e)}") from e
