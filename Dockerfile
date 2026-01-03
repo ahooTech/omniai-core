@@ -13,7 +13,9 @@ RUN apt-get update && \
         postgresql-client \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-
+    
+# 🔒 Critical: Patch pip BEFORE installing Python packages
+RUN pip install --no-cache-dir --upgrade "pip>=25.2"
 
 WORKDIR /app
 
