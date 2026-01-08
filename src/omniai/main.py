@@ -65,7 +65,7 @@ import uvicorn
 from fastapi import FastAPI
 from sqlalchemy.exc import OperationalError
 
-from omniai.api.v1 import auth, me
+from omniai.api.v1 import auth, me, health, agriculture
 from omniai.api.v1.agriculture import router as agriculture_router
 from omniai.api.v1.health import router as health_router
 from omniai.core.config import settings
@@ -127,8 +127,8 @@ app.add_middleware(LoggingMiddleware)
 app.add_middleware(TenantValidationMiddleware)
 
 # Routers
-app.include_router(health_router, prefix="/v1")
-app.include_router(agriculture_router, prefix="/v1")
+app.include_router(health.router, prefix="/v1")
+app.include_router(agriculture.router, prefix="/v1")
 app.include_router(auth.router, prefix="/v1/auth")
 app.include_router(me.router, prefix="/v1")
 

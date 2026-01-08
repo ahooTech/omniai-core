@@ -89,7 +89,8 @@ unsafe-fixes = false
 [tool.ruff.lint.per-file-ignores]
 "src/omniai/tests/unit/test_auth.py" = ["B008"]
 "src/omniai/api/v1/me.py" = ["B008"]
-"src/omniai/api/v1/auth.py" = ["B008"]   
+"src/omniai/api/v1/auth.py" = ["B008"]
+"src/omniai/api/v1/health.py" = ["B008"]    
 "src/omniai/main.py" = ["ARG001"]
 
 
