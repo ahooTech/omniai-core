@@ -17,6 +17,7 @@ from omniai.models.user import user_organization
 
 # Public paths (no auth needed)
 PUBLIC_PATHS = {
+    "/",
     "/v1/health",
     "/v1/health/ready",
     "/metrics",
