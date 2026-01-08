@@ -61,4 +61,4 @@ CMD ["/app/start.sh"]
 # CMD ["python", "-m", "uvicorn", "omniai.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 
-# This is my Docker file that is built by either docker-compose-test.yml or docker-compose.yml
+# This is my Docker file that is built by either docker-compose-test.yml for testing or docker-compose.yml for real world
