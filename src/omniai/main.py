@@ -52,22 +52,18 @@ IMPORTANT: This file should remain CLEAN.
 - Only wiring: middlewares, routers, lifecycle events
 """
 
-
-
-
-# src/omniai/main.py
 import asyncio
 import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from sqlalchemy.exc import OperationalError
+from slowapi.errors import RateLimitExceeded
+from starlette.responses import JSONResponse
 
 from omniai.api.v1 import auth, me, health, agriculture
-from omniai.api.v1.agriculture import router as agriculture_router
-from omniai.api.v1.health import router as health_router
 from omniai.core.config import settings
 from omniai.core.logging import logger
 from omniai.core.logging_middleware import LoggingMiddleware
@@ -75,6 +71,7 @@ from omniai.core.middleware import TenantValidationMiddleware
 from omniai.db.session import engine
 from omniai.models.organization import Base as OrgBase
 from omniai.models.user import Base as UserBase
+
 
 # 🔒 Security & config audit at startup
 logger.info(
@@ -84,7 +81,7 @@ logger.info(
     async_driver="asyncpg",
     token_expire_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     jwt_algorithm=settings.JWT_ALGORITHM,
-    debug_mode=(len(settings.JWT_SECRET_KEY) < 32)  # Warn if key is too short!
+    debug_mode=(len(settings.JWT_SECRET_KEY) < 32)
 )
 
 if len(settings.JWT_SECRET_KEY) < 32:
@@ -93,9 +90,13 @@ if len(settings.JWT_SECRET_KEY) < 32:
         message="JWT_SECRET_KEY is less than 32 bytes — rotate immediately!"
     )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Wait for DB to be ready
+    # Initialize readiness flag
+    app.state.ready = False
+
+    # Wait for DB to be ready and create tables
     for i in range(10):
         try:
             async with engine.begin() as conn:
@@ -108,9 +109,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await asyncio.sleep(2)
     else:
         logger.error("database_connection_failed", message="Failed to connect to database after 10 attempts")
-        raise RuntimeError("Failed to connect to database after 10 attempts")
+        raise RuntimeError("Failed to connect to database after 10 attempts") from None
 
+    # ✅ MARK AS READY AFTER STARTUP TASKS
+    app.state.ready = True
     yield
+
+    # Shutdown
+    app.state.ready = False
     await engine.dispose()
     logger.info("application_shutdown", message="Database engine disposed")
 
@@ -121,6 +127,20 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+# Exception handler
+async def rate_limit_handler(request: Request, exc: Exception) -> JSONResponse:
+    if isinstance(exc, RateLimitExceeded):
+        return JSONResponse(
+            status_code=429,
+            content={"error": "rate_limit_exceeded", "detail": exc.detail},
+            headers=exc.headers or {},
+        )
+    return JSONResponse(status_code=500, content={"error": "server_error"})
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
 # Middleware (order matters!)
 app.add_middleware(LoggingMiddleware)
@@ -136,7 +156,7 @@ logger.info("application_startup_complete", message="OMNIAI Core is ready to acc
 
 
 if __name__ == "__main__":
-    host = os.getenv("UVICORN_HOST", "127.0.0.1")  # Default to localhost in dev
+    host = os.getenv("UVICORN_HOST", "127.0.0.1")
     port = int(os.getenv("UVICORN_PORT", "8000"))
     reload = os.getenv("UVICORN_RELOAD", "false").lower() == "true"
 

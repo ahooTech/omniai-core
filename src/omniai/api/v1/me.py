@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from omniai.api.v1.schemas import OrganizationSummary, UserMe
 from omniai.core.logging import logger
+from omniai.core.limiter import conditional_limit
 from omniai.db.session import get_db
 from omniai.models.organization import Organization
 from omniai.models.user import User, user_organization
@@ -12,6 +13,7 @@ from omniai.models.user import User, user_organization
 router = APIRouter()
 
 @router.get("/me", response_model=UserMe)
+@conditional_limit("20/minute")
 async def read_users_me(
     request: Request,
     db: AsyncSession = Depends(get_db)

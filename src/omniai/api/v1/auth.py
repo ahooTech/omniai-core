@@ -1,7 +1,7 @@
 ## src/omniai/api/v1/auth.py
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,11 +12,16 @@ from omniai.core.logging import logger
 from omniai.db.session import get_db
 from omniai.models.user import User
 from omniai.services.auth import authenticate_user, create_user_with_org
+#from omniai.core.limiter import limiter
+from omniai.core.limiter import conditional_limit
+
 
 router = APIRouter()
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
-async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
+@conditional_limit("3/minute")
+async def signup(request: Request, user: UserCreate, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
+    #logger.info("rate_limit_enabled", enabled=limiter.enabled)  # ← add this
     logger.info("signup_attempt", email=user.email)
 
     result = await db.execute(select(User).where(User.email == user.email))
@@ -40,10 +45,13 @@ async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)) -> dict[s
 
 
 @router.post("/login", response_model=Token)
+@conditional_limit("5/minute")
 async def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db)
 ) -> Token:
+    #logger.info("rate_limit_enabled", enabled=limiter.enabled)  # ← add this
     logger.info("login_attempt", email=form_data.username)
 
     user: Optional[User] = await authenticate_user(db, form_data.username, form_data.password)

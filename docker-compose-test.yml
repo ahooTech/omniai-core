@@ -29,10 +29,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    environment:
+      OMNIAI_DISABLE_RATE_LIMIT: 1
     volumes:
       - ./src:/app/src
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/v1/health/ready"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -51,6 +53,7 @@ services:
         condition: service_healthy
     environment:
       # So psql/pg_isready/dropdb don't prompt for password
+      # OMNIAI_DISABLE_RATE_LIMIT: 1
       PGPASSWORD: postgres
     command: >
       sh -c "
@@ -58,7 +61,7 @@ services:
         pg_isready -h db -U postgres &&
 
         echo '🚀 Waiting for app health check...' &&
-        timeout 30 sh -c 'while ! curl -s --fail http://app:8000/v1/health; do sleep 1; done' &&
+        timeout 30 sh -c 'while ! curl -s --fail http://app:8000/v1/health/ready; do sleep 1; done' &&
 
         echo '✅ App is ready!' &&
 

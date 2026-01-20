@@ -29,11 +29,13 @@ COPY scripts/ ./scripts/
 ARG INSTALL_DEV=false
 
 # Install main dependencies (always)
-RUN pip install --no-cache-dir -e .
+#RUN pip install --no-cache-dir -e .
+# Install main dependencies (always)
+RUN pip install --no-cache-dir --only-binary=all -e .
 
 # Install test dependencies only if requested
 RUN if [ "$INSTALL_DEV" = "true" ]; then \
-      pip install --no-cache-dir -e ".[dev]"; \
+      pip install --no-cache-dir --only-binary=all -e ".[dev]"; \
     fi
 
 COPY scripts/start.sh /app/start.sh
