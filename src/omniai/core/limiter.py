@@ -44,22 +44,18 @@ limiter = _real_limiter
 # src/omniai/core/limiter.py
 import os
 from functools import wraps
-from typing import Callable, Any, Coroutine, Optional
+from typing import Callable, Any, Coroutine, Optional, TypeVar, cast
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 DISABLE_RATE_LIMIT = os.getenv("OMNIAI_DISABLE_RATE_LIMIT", "0").lower() in ("1", "true", "yes")
-
-# For Upstash Redis (TLS required), use rediss:// + ?ssl_cert_reqs=CERT_NONE
 REDIS_URL = os.getenv("REDIS_URL")
 
 _real_limiter: Optional[Limiter] = None
 
 if not DISABLE_RATE_LIMIT:
     if REDIS_URL:
-        # Handle Upstash: convert rediss:// to redis:// and add SSL params
         if REDIS_URL.startswith("rediss://"):
-            # Upstash requires TLS, but we disable cert verification
             storage_uri = REDIS_URL + "?ssl_cert_reqs=CERT_NONE"
         else:
             storage_uri = REDIS_URL
@@ -68,16 +64,18 @@ if not DISABLE_RATE_LIMIT:
             storage_uri=storage_uri
         )
     else:
-        # Fallback to in-memory (not for prod)
         _real_limiter = Limiter(key_func=get_remote_address)
 
-def conditional_limit(limit: str):
+# Define type variables for decorator
+F = TypeVar("F", bound=Callable[..., Coroutine[Any, Any, Any]])
+
+def conditional_limit(limit: str) -> Callable[[F], F]:
     if DISABLE_RATE_LIMIT or _real_limiter is None:
-        def decorator(func):
+        def decorator(func: F) -> F:
             @wraps(func)
-            async def wrapper(*args, **kwargs):
+            async def wrapper(*args: Any, **kwargs: Any) -> Any:
                 return await func(*args, **kwargs)
-            return wrapper
+            return cast(F, wrapper)
         return decorator
     else:
         return _real_limiter.limit(limit)
