@@ -1,4 +1,3 @@
-# src/omniai/core/limiter.py
 import os
 from functools import wraps
 from typing import Any, Callable, Coroutine, Optional, TypeVar, cast
@@ -13,15 +12,10 @@ _real_limiter: Optional[Limiter] = None
 
 if not DISABLE_RATE_LIMIT:
     if REDIS_URL:
-        # For Upstash: use rediss:// + disable cert verification
-        if REDIS_URL.startswith("rediss://"):
-            # Add SSL params for redis-py v4.x
-            storage_uri = REDIS_URL + "?ssl_cert_reqs=CERT_NONE"
-        else:
-            storage_uri = REDIS_URL
+        # ✅ Use the URL AS-IS — no modification
         _real_limiter = Limiter(
             key_func=get_remote_address,
-            storage_uri=storage_uri
+            storage_uri=REDIS_URL  # ← Just pass it directly
         )
     else:
         _real_limiter = Limiter(key_func=get_remote_address)
