@@ -50,6 +50,9 @@ dependencies = [
     "email-validator>=2.2.0",
     "python-multipart>=0.0.9",
     "charset-normalizer>=3.3.0",
+     
+    # required for production rate limiting
+    "redis>=5.0.0",
     
 ]
 

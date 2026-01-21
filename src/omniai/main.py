@@ -71,6 +71,7 @@ from omniai.core.middleware import TenantValidationMiddleware
 from omniai.db.session import engine
 from omniai.models.organization import Base as OrgBase
 from omniai.models.user import Base as UserBase
+from omniai.core.limiter import limiter as rate_limiter
 
 
 # 🔒 Security & config audit at startup
@@ -128,6 +129,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Attach limiter to app state
+if rate_limiter is not None:
+    app.state.limiter = rate_limiter
 
 # Exception handler
 async def rate_limit_handler(request: Request, exc: Exception) -> JSONResponse:
