@@ -54,7 +54,6 @@ dependencies = [
     # required for production rate limiting
     "redis>=5.0.0",
     "limits>=3.5.0",
-    "aioredis>=2.0.0",
     
 ]
 

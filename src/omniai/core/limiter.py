@@ -41,51 +41,37 @@ def conditional_limit(limit: str) -> Callable[..., Callable[..., Coroutine[Any, 
 limiter = _real_limiter
 
 """
-
 # src/omniai/core/limiter.py
 import os
 from functools import wraps
 from typing import Callable, Any, Coroutine, Optional
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from redis import asyncio as aioredis
-from slowapi.storage.redis_storage import RedisStorage
 
-# Global flag
 DISABLE_RATE_LIMIT = os.getenv("OMNIAI_DISABLE_RATE_LIMIT", "0").lower() in ("1", "true", "yes")
 
-# Get Redis URL
+# For Upstash Redis (TLS required), use rediss:// + ?ssl_cert_reqs=CERT_NONE
 REDIS_URL = os.getenv("REDIS_URL")
 
 _real_limiter: Optional[Limiter] = None
 
-if not DISABLE_RATE_LIMIT and REDIS_URL:
-    # Parse Redis URL for SSL
-    if REDIS_URL.startswith("rediss://"):
-        # Convert to redis:// + enable SSL
-        redis_url = REDIS_URL.replace("rediss://", "redis://")
-        ssl = True
+if not DISABLE_RATE_LIMIT:
+    if REDIS_URL:
+        # Handle Upstash: convert rediss:// to redis:// and add SSL params
+        if REDIS_URL.startswith("rediss://"):
+            # Upstash requires TLS, but we disable cert verification
+            storage_uri = REDIS_URL + "?ssl_cert_reqs=CERT_NONE"
+        else:
+            storage_uri = REDIS_URL
+        _real_limiter = Limiter(
+            key_func=get_remote_address,
+            storage_uri=storage_uri
+        )
     else:
-        redis_url = REDIS_URL
-        ssl = False
+        # Fallback to in-memory (not for prod)
+        _real_limiter = Limiter(key_func=get_remote_address)
 
-    # Create Redis connection with SSL if needed
-    redis_client = aioredis.from_url(
-        redis_url,
-        decode_responses=True,
-        ssl=ssl,
-        ssl_cert_reqs=None  # Allow self-signed certs (for Upstash)
-    )
-
-    # Use RedisStorage with custom client
-    storage = RedisStorage(redis_client)
-
-    _real_limiter = Limiter(
-        key_func=get_remote_address,
-        storage=storage  # ← Use custom storage
-    )
-
-def conditional_limit(limit: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
+def conditional_limit(limit: str):
     if DISABLE_RATE_LIMIT or _real_limiter is None:
         def decorator(func):
             @wraps(func)
@@ -96,7 +82,4 @@ def conditional_limit(limit: str) -> Callable[..., Callable[..., Coroutine[Any, 
     else:
         return _real_limiter.limit(limit)
 
-# Expose limiter instance for app integration
 limiter = _real_limiter
-
-# small edit
