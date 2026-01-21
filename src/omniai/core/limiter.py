@@ -101,40 +101,51 @@ limiter = _real_limiter
 
 """
 
-
 # src/omniai/core/limiter.py
 import os
 from functools import wraps
-from typing import Callable, Any, Coroutine, Optional
+from typing import Any, Callable, Coroutine, Optional
 
-# 🔥 PATCH FOR UPSTASH: Allow rediss:// with self-signed certs
-REDIS_URL = os.getenv("REDIS_URL", "")
-if REDIS_URL.startswith("rediss://"):
-    import ssl
-    # Patch redis-py to skip cert verification for Upstash
-    from redis.asyncio.connection import SSLConnection
-    original_init = SSLConnection.__init__
-    def _patched_init(self, *args, **kwargs):
-        kwargs.setdefault("ssl_cert_reqs", ssl.CERT_NONE)
-        return original_init(self, *args, **kwargs)
-    SSLConnection.__init__ = _patched_init
-
+# Import early — no E402
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-DISABLE_RATE_LIMIT = os.getenv("OMNIAI_DISABLE_RATE_LIMIT", "0").lower() in ("1", "true", "yes")
 
+def _patch_upstash_redis():
+    """Patch redis-py to accept self-signed certs for Upstash."""
+    REDIS_URL = os.getenv("REDIS_URL", "")
+    if REDIS_URL.startswith("rediss://"):
+        import ssl
+        from redis.asyncio.connection import SSLConnection
+
+        original_init = SSLConnection.__init__
+
+        def _patched_init(self, *args, **kwargs):
+            kwargs.setdefault("ssl_cert_reqs", ssl.CERT_NONE)
+            return original_init(self, *args, **kwargs)
+
+        SSLConnection.__init__ = _patched_init
+
+
+# Apply patch at module load time (safe, only once)
+_patch_upstash_redis()
+
+# Configuration
+DISABLE_RATE_LIMIT = os.getenv("OMNIAI_DISABLE_RATE_LIMIT", "0").lower() in ("1", "true", "yes")
+REDIS_URL = os.getenv("REDIS_URL")
+
+# Initialize limiter
 _real_limiter: Optional[Limiter] = None
 
 if not DISABLE_RATE_LIMIT:
-    # Use storage_uri as a string — slowapi handles the rest
     storage_uri = REDIS_URL if REDIS_URL else None
     _real_limiter = Limiter(
         key_func=get_remote_address,
-        storage_uri=storage_uri  # ✅ This is a str | None — mypy happy!
+        storage_uri=storage_uri
     )
 
 def conditional_limit(limit: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
+    """Apply rate limit only if enabled."""
     if DISABLE_RATE_LIMIT or _real_limiter is None:
         def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
             @wraps(func)
