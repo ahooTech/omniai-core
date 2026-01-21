@@ -1,6 +1,8 @@
+aioredis==2.0.1
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.12.1
+async-timeout==5.0.1
 asyncpg==0.31.0
 bandit==1.9.3
 bcrypt==5.0.0
@@ -14,6 +16,7 @@ cryptography==46.0.3
 Deprecated==1.3.1
 dnspython==2.8.0
 dparse==0.6.4
+e==1.4.5
 email-validator==2.3.0
 fastapi==0.128.0
 greenlet==3.3.0
@@ -29,7 +32,7 @@ markdown-it-py==4.0.0
 mdurl==0.1.2
 mypy==1.19.1
 mypy_extensions==1.1.0
--e git+https://github.com/ahooTech/omniai-core.git@d2c0711a5acbe9140ea7b2c81ee46b6195889595#egg=omniai
+omniai @ file:///C:/Users/Antony%20Henry%20Oduor/Desktop/%40hoo%20IT%20Company/AI%20Path/CATEGORY%201%20CORE%20PROGRAMMING%20AND%20SOFTWARE%20ENGINEERING/omniai-core
 packaging==21.3
 passlib==1.7.4
 pathspec==1.0.3
