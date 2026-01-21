@@ -1,5 +1,5 @@
 # omniai/core/limiter.py
-
+"""
 import os
 from functools import wraps
 from typing import Callable, Any, Coroutine, Optional
@@ -26,7 +26,7 @@ if not DISABLE_RATE_LIMIT:
     )
 
 def conditional_limit(limit: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
-    """Apply rate limit only if OMNIAI_DISABLE_RATE_LIMIT is not set."""
+    #Apply rate limit only if OMNIAI_DISABLE_RATE_LIMIT is not set.
     if DISABLE_RATE_LIMIT or _real_limiter is None:
         def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
             @wraps(func)
@@ -38,4 +38,62 @@ def conditional_limit(limit: str) -> Callable[..., Callable[..., Coroutine[Any, 
         return _real_limiter.limit(limit)
 
 # Expose limiter instance for app integration
+limiter = _real_limiter
+
+"""
+
+
+# src/omniai/core/limiter.py
+import os
+from functools import wraps
+from typing import Callable, Any, Coroutine, Optional
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Global flags
+DISABLE_RATE_LIMIT = os.getenv("OMNIAI_DISABLE_RATE_LIMIT", "0").lower() in ("1", "true", "yes")
+REDIS_URL = os.getenv("REDIS_URL")
+
+_real_limiter: Optional[Limiter] = None
+
+if not DISABLE_RATE_LIMIT:
+    if REDIS_URL:
+        # ✅ Handle Upstash: rediss:// + TLS + token auth
+        try:
+            from limits.storage import RedisStorage
+            from limits.strategies import MovingWindowRateLimiter
+
+            # Create RedisStorage with TLS support (for Upstash)
+            storage = RedisStorage(
+                REDIS_URL,
+                ssl=True,
+                ssl_cert_reqs="none"  # Upstash uses self-signed cert
+            )
+            _real_limiter = Limiter(
+                key_func=get_remote_address,
+                strategy=MovingWindowRateLimiter(storage)
+            )
+        except ImportError:
+            # Fallback to in-memory if dependencies missing (dev only)
+            _real_limiter = Limiter(key_func=get_remote_address)
+        except Exception as e:
+            print(f"⚠️ Redis limiter init failed: {e}")
+            _real_limiter = Limiter(key_func=get_remote_address)  # fallback
+    else:
+        # In-memory (not for prod)
+        _real_limiter = Limiter(key_func=get_remote_address)
+
+def conditional_limit(limit: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
+    """Apply rate limit only if enabled."""
+    if DISABLE_RATE_LIMIT or _real_limiter is None:
+        def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
+            @wraps(func)
+            async def wrapper(*args: Any, **kwargs: Any) -> Any:
+                return await func(*args, **kwargs)
+            return wrapper
+        return decorator
+    else:
+        return _real_limiter.limit(limit)
+
+# Expose for app integration
 limiter = _real_limiter
