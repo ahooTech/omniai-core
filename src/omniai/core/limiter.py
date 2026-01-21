@@ -57,29 +57,25 @@ _real_limiter: Optional[Limiter] = None
 
 if not DISABLE_RATE_LIMIT:
     if REDIS_URL:
-        # Parse Redis URL
         parsed = urlparse(REDIS_URL)
-        
-        # Handle Upstash (rediss://) → requires SSL
         if parsed.scheme == "rediss":
+            # Convert rediss:// → redis://
             storage_uri = f"redis://{parsed.hostname}:{parsed.port or 6379}"
-            # Pass SSL options via limiter's storage_options
+            # Use STRING VALUES that redis-py will parse correctly
             _real_limiter = Limiter(
                 key_func=get_remote_address,
                 storage_uri=storage_uri,
                 storage_options={
-                    "ssl": True,
-                    "ssl_cert_reqs": None,  # Equivalent to CERT_NONE
+                    "ssl": "True",          # ← STRING "True"
+                    "ssl_cert_reqs": "none" # ← STRING "none"
                 }
             )
         else:
-            # Standard redis://
             _real_limiter = Limiter(
                 key_func=get_remote_address,
                 storage_uri=REDIS_URL
             )
     else:
-        # Fallback to in-memory (not for prod)
         _real_limiter = Limiter(key_func=get_remote_address)
 
 # --- Decorator (unchanged) ---
