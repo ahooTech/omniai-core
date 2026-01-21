@@ -41,12 +41,14 @@ def conditional_limit(limit: str) -> Callable[..., Callable[..., Coroutine[Any, 
 limiter = _real_limiter
 
 """
+
 # src/omniai/core/limiter.py
 import os
 from functools import wraps
 from typing import Callable, Any, Coroutine, Optional, TypeVar, cast
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from urllib.parse import urlparse
 
 DISABLE_RATE_LIMIT = os.getenv("OMNIAI_DISABLE_RATE_LIMIT", "0").lower() in ("1", "true", "yes")
 REDIS_URL = os.getenv("REDIS_URL")
@@ -55,18 +57,32 @@ _real_limiter: Optional[Limiter] = None
 
 if not DISABLE_RATE_LIMIT:
     if REDIS_URL:
-        if REDIS_URL.startswith("rediss://"):
-            storage_uri = REDIS_URL + "?ssl_cert_reqs=CERT_NONE"
+        # Parse Redis URL
+        parsed = urlparse(REDIS_URL)
+        
+        # Handle Upstash (rediss://) → requires SSL
+        if parsed.scheme == "rediss":
+            storage_uri = f"redis://{parsed.hostname}:{parsed.port or 6379}"
+            # Pass SSL options via limiter's storage_options
+            _real_limiter = Limiter(
+                key_func=get_remote_address,
+                storage_uri=storage_uri,
+                storage_options={
+                    "ssl": True,
+                    "ssl_cert_reqs": None,  # Equivalent to CERT_NONE
+                }
+            )
         else:
-            storage_uri = REDIS_URL
-        _real_limiter = Limiter(
-            key_func=get_remote_address,
-            storage_uri=storage_uri
-        )
+            # Standard redis://
+            _real_limiter = Limiter(
+                key_func=get_remote_address,
+                storage_uri=REDIS_URL
+            )
     else:
+        # Fallback to in-memory (not for prod)
         _real_limiter = Limiter(key_func=get_remote_address)
 
-# Define type variables for decorator
+# --- Decorator (unchanged) ---
 F = TypeVar("F", bound=Callable[..., Coroutine[Any, Any, Any]])
 
 def conditional_limit(limit: str) -> Callable[[F], F]:
