@@ -1,9 +1,20 @@
+
 import os
 from functools import wraps
 from typing import Any, Callable, Coroutine, Optional, TypeVar, cast
 
 from slowapi import Limiter
-from slowapi.util import get_remote_address
+from starlette.requests import Request
+
+# ✅ Custom key function that respects X-Forwarded-For
+def get_real_client_ip(request: Request) -> str:
+    # Check X-Forwarded-For first (Render, Cloudflare, etc.)
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        # X-Forwarded-For: client, proxy1, proxy2
+        return forwarded.split(",")[0].strip()
+    # Fallback to direct remote address
+    return request.client.host if request.client else "127.0.0.1"
 
 DISABLE_RATE_LIMIT = os.getenv("OMNIAI_DISABLE_RATE_LIMIT", "0").lower() in ("1", "true", "yes")
 REDIS_URL = os.getenv("REDIS_URL")
@@ -12,13 +23,12 @@ _real_limiter: Optional[Limiter] = None
 
 if not DISABLE_RATE_LIMIT:
     if REDIS_URL:
-        # ✅ Use the URL AS-IS — no modification
         _real_limiter = Limiter(
-            key_func=get_remote_address,
-            storage_uri=REDIS_URL  # ← Just pass it directly
+            key_func=get_real_client_ip,  # ← Use real IP
+            storage_uri=REDIS_URL
         )
     else:
-        _real_limiter = Limiter(key_func=get_remote_address)
+        _real_limiter = Limiter(key_func=get_real_client_ip)
 
 F = TypeVar("F", bound=Callable[..., Coroutine[Any, Any, Any]])
 
