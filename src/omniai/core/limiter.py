@@ -98,3 +98,5 @@ def conditional_limit(limit: str) -> Callable[..., Callable[..., Coroutine[Any, 
 
 # Expose limiter instance for app integration
 limiter = _real_limiter
+
+# small edit
