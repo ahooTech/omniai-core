@@ -21,6 +21,10 @@ And it works.
 
 ## 🚀 Quick Start
 
+ https://omniai-web.onrender.com/v1/health
+
+ https://omniai-web.onrender.com/v1/health/ready
+
 ```bash
 git clone https://github.com/ahooTech/omniai-core.git  
 cd omniai-core
@@ -31,65 +35,84 @@ source venv/Scripts/activate .  # Linux/Mac
 pip install -e .
 uvicorn src.omniai.main:app --reload
 ```
+
+
+
 ## 📁 Project Structure
 ```
 OMNIAI-CORE/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
+├── .mypy_cache/
+├── .pytest_cache/
+├── .ruff_cache/
+├── .venv/
+├── build/
+├── scripts/
+│   ├── bootstrap.sh
+│   └── start.sh
+├── src/
+│   └── omniai/
+│       ├── __pycache__/
+│       ├── api/
+│       │   ├── __pycache__/
+│       │   └── v1/
+│       │       ├── __pycache__/
+│       │       ├── agriculture.py
+│       │       ├── auth.py
+│       │       ├── health.py
+│       │       ├── me.py
+│       │       ├── schemas.py
+│       │       └── __init__.py
+│       ├── core/
+│       │   ├── __pycache__/
+│       │   ├── config.py
+│       │   ├── jwt.py
+│       │   ├── limiter.py
+│       │   ├── logging_middleware.py
+│       │   ├── logging.py
+│       │   └── middleware.py
+│       ├── db/
+│       │   ├── __pycache__/
+│       │   ├── __init__.py
+│       │   └── session.py
+│       ├── models/
+│       │   ├── __pycache__/
+│       │   ├── __init__.py
+│       │   ├── base.py
+│       │   ├── organization.py
+│       │   └── user.py
+│       ├── services/
+│       │   ├── __pycache__/
+│       │   ├── __init__.py
+│       │   ├── auth.py
+│       │   └── organization.py
+│       ├── __init__.py
+│       └── main.py
+├── omniai.egg-info/
+├── tests/
+│   ├── __pycache__/
+│   ├── unit/
+│   │   ├── __pycache__/
+│   │   ├── __init__.py
+│   │   └── test_auth.py
+│   └── __init__.py
+├── .env
+├── .env.test.docker
 ├── .gitattributes
 ├── .gitignore
-├── LICENSE
-├── README.md
+├── docker-compose-test.yml
 ├── docker-compose.yml
 ├── Dockerfile
+├── LICENSE
 ├── pyproject.toml
-├── scripts/
-│   └── bootstrap.sh
-├── src/
-│   ├── omniai/
-│   │   ├── __init__.py
-│   │   ├── main.py
-│   │   ├── api/
-│   │   │   ├── __init__.py
-│   │   │   └── v1/
-│   │   │       ├── __init__.py
-│   │   │       ├── agriculture.py
-│   │   │       └── health.py
-│   │   ├── core/
-│   │   │   ├── __init__.py
-│   │   │   └── middleware.py
-│   │   ├── db/
-│   │   │   ├── __init__.py
-│   │   │   └── session.py
-│   │   ├── models/
-│   │   │   ├── __init__.py
-│   │   │   └── organization.py
-│   │   └── services/
-│   │       ├── __init__.py
-│   │       └── organization.py
-│   └── omniai.egg-info/
-│       ├── dependency_links.txt
-│       ├── PKG-INFO
-│       ├── SOURCES.txt
-│       ├── top_level.txt
-│       └── ... (other standard egg-info files — **no entry_points.txt**)
-├── tests/
-│   ├── __init__.py
-│   └── unit/
-│       ├── __init__.py
-│       └── test_tenant_middleware.py
-└── venv/
-    ├── Include/
-    ├── Lib/
-    ├── Scripts/
-    └── pyvenv.cfg
+├── README.md
+└── requirements.txt
+
 ```
 ## 🧪 Testing
 
-```bash
-pytest tests/unit/test_tenant_middleware.py -v
-```
 
 ## 📜 License
 MIT © Antony Henry Oduor Onyango
