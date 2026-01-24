@@ -46,7 +46,6 @@ services:
       context: .
       args:
         INSTALL_DEV: "true"
-    user: "${UID:-1000}:${GID:-1000}"
     env_file:
       - .env.test.docker  
     depends_on:
@@ -69,13 +68,13 @@ services:
         echo '✅ App is ready!' &&
 
         echo '🔍 Running static analysis...' &&
-        ruff check . &&
+        RUFF_CACHE_DIR=/tmp ruff check . &&
         mypy src/ &&
-        bandit -r src/ -ll -x \"**/migrations/**,**/__pycache__/**\" &&
+        bandit -r src/ -ll -x '**/migrations/**,**/__pycache__/**' &&
         safety check --full-report &&
 
         echo '🧪 Running tests with coverage...' &&
-        pytest -v --tb=short --cov=omniai --cov-report=html --cov-fail-under=90       
+        pytest -v --tb=short --cov=omniai --cov-report=html --cov-fail-under=90
       "
 
 volumes:
