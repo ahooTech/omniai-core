@@ -46,6 +46,7 @@ services:
       context: .
       args:
         INSTALL_DEV: "true"
+    user: "${UID:-1000}:${GID:-1000}"
     env_file:
       - .env.test.docker  
     depends_on:
