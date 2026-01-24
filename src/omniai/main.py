@@ -64,7 +64,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.responses import JSONResponse
 
 from omniai.api.v1 import auth, me, health, agriculture
-from omniai.core.config import settings
+from omniai.core.config import Settings
 from omniai.core.logging import logger
 from omniai.core.logging_middleware import LoggingMiddleware
 from omniai.core.middleware import TenantValidationMiddleware
@@ -73,27 +73,35 @@ from omniai.models.organization import Base as OrgBase
 from omniai.models.user import Base as UserBase
 from omniai.core.limiter import limiter as rate_limiter
 
-
-# 🔒 Security & config audit at startup
-logger.info(
-    "application_startup_init",
-    version="1.0",
-    database_engine="postgresql",
-    async_driver="asyncpg",
-    token_expire_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
-    jwt_algorithm=settings.JWT_ALGORITHM,
-    debug_mode=(len(settings.JWT_SECRET_KEY) < 32)
-)
-
-if len(settings.JWT_SECRET_KEY) < 32:
-    logger.critical(
-        "security_risk_weak_jwt_secret",
-        message="JWT_SECRET_KEY is less than 32 bytes — rotate immediately!"
-    )
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # ✅ VALIDATE AND LOAD CONFIG HERE
+    try:
+        settings = Settings()  # ← Instantiated only when app starts
+    except Exception as e:
+        logger.critical("config_validation_failed", error=str(e))
+        raise SystemExit(1) from None
+
+    # 🔒 Security & config audit
+    logger.info(
+        "application_startup_init",
+        version="1.0",
+        database_engine="postgresql",
+        async_driver="asyncpg",
+        token_expire_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+        jwt_algorithm=settings.JWT_ALGORITHM,
+        debug_mode=(len(settings.JWT_SECRET_KEY) < 32)
+    )
+
+    if len(settings.JWT_SECRET_KEY) < 32:
+        logger.critical(
+            "security_risk_weak_jwt_secret",
+            message="JWT_SECRET_KEY is less than 32 bytes — rotate immediately!"
+        )
+
+    # Store settings in app.state for access in routes/middleware if needed
+    app.state.settings = settings
+
     # Initialize readiness flag
     app.state.ready = False
 
@@ -112,7 +120,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error("database_connection_failed", message="Failed to connect to database after 10 attempts")
         raise RuntimeError("Failed to connect to database after 10 attempts") from None
 
-    # ✅ MARK AS READY AFTER STARTUP TASKS
     app.state.ready = True
     yield
 
@@ -120,6 +127,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.ready = False
     await engine.dispose()
     logger.info("application_shutdown", message="Database engine disposed")
+
+
 
 
 app = FastAPI(

@@ -140,3 +140,57 @@ limiter = _real_limiter
 
 
 """
+
+
+
+# Main.py
+
+"""
+# 🔒 Security & config audit at startup
+logger.info(
+    "application_startup_init",
+    version="1.0",
+    database_engine="postgresql",
+    async_driver="asyncpg",
+    token_expire_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+    jwt_algorithm=settings.JWT_ALGORITHM,
+    debug_mode=(len(settings.JWT_SECRET_KEY) < 32)
+)
+
+if len(settings.JWT_SECRET_KEY) < 32:
+    logger.critical(
+        "security_risk_weak_jwt_secret",
+        message="JWT_SECRET_KEY is less than 32 bytes — rotate immediately!"
+    )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Initialize readiness flag
+    app.state.ready = False
+
+    # Wait for DB to be ready and create tables
+    for i in range(10):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(UserBase.metadata.create_all)
+                await conn.run_sync(OrgBase.metadata.create_all)
+            logger.info("database_initialized", tables_created=["users", "organizations", "user_organization"])
+            break
+        except OperationalError as e:
+            logger.warning("database_connection_retry", attempt=i+1, max_attempts=10, error=str(e))
+            await asyncio.sleep(2)
+    else:
+        logger.error("database_connection_failed", message="Failed to connect to database after 10 attempts")
+        raise RuntimeError("Failed to connect to database after 10 attempts") from None
+
+    # ✅ MARK AS READY AFTER STARTUP TASKS
+    app.state.ready = True
+    yield
+
+    # Shutdown
+    app.state.ready = False
+    await engine.dispose()
+    logger.info("application_shutdown", message="Database engine disposed")
+
+"""

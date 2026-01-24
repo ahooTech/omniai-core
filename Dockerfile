@@ -27,15 +27,14 @@ COPY scripts/ ./scripts/
 
 # 💡 New: Accept a build arg to decide whether to install test dependencies
 ARG INSTALL_DEV=false
-
-# Install main dependencies (always)
-#RUN pip install --no-cache-dir -e .
-# Install main dependencies (always)
-RUN pip install --no-cache-dir --only-binary=all -e .
-
-# Install test dependencies only if requested
+    
+# Replace the two RUN lines with this:
 RUN if [ "$INSTALL_DEV" = "true" ]; then \
+        # if variable in test is true install main deps + dev deps
       pip install --no-cache-dir --only-binary=all -e ".[dev]"; \
+    else \
+    # if variable in test is false install main deps only
+      pip install --no-cache-dir --only-binary=all -e .; \
     fi
 
 COPY scripts/start.sh /app/start.sh

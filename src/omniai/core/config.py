@@ -1,8 +1,7 @@
 # src/omniai/core/config.py
-# multi database multi country
 from typing import Any
-
-from pydantic import Field, ValidationError
+from functools import lru_cache
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,17 +26,10 @@ class Settings(BaseSettings):
     )
 
     def __init__(self, **kwargs: Any) -> None:
-        # Allow empty init — Pydantic loads from env
+         # Allow empty init — Pydantic loads from env
         super().__init__(**kwargs)
 
 
-# ❗ Critical: Validate at startup
-try:
-    settings = Settings()
-    # set DATABASE_URL=postgresql://prod/proddb
-    # python -c "from omniai.core.config import settings; print(settings.DATABASE_URL)"
-except ValidationError as e:
-    print("❌ Missing required environment variables:")
-    for error in e.errors():
-        print(f"  - {error['loc'][0]}: {error['msg']}")
-    raise SystemExit(1) from None
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()

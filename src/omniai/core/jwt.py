@@ -4,10 +4,11 @@ from typing import Any
 import jwt
 from jwt import PyJWTError
 
-from omniai.core.config import settings
+from omniai.core.config import get_settings  # ✅ Import the function, not the instance
 
 
 def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
+    settings = get_settings()  # ✅ Call it inside the function
     to_encode = data.copy()
     if expires_delta is None:
         expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -17,6 +18,7 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
 
 
 def decode_token(token: str) -> dict[str, Any]:
+    settings = get_settings()  # ✅ Call it here too
     try:
         payload = jwt.decode(
             token,
