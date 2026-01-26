@@ -64,16 +64,20 @@ from slowapi.errors import RateLimitExceeded
 from starlette.responses import JSONResponse
 
 from omniai.api.v1 import auth, me, health, agriculture
+from omniai.api.v1.metrics import router as metrics_router
 from omniai.core.config import Settings
 from omniai.core.logging import logger
+from omniai.core.metrics_middleware import MetricsMiddleware
 from omniai.core.logging_middleware import LoggingMiddleware
 from omniai.core.middleware import TenantValidationMiddleware
 from omniai.db.session import engine
 from omniai.models.organization import Base as OrgBase
 from omniai.models.user import Base as UserBase
 from omniai.core.limiter import limiter as rate_limiter
+
 # Determine if docs should be enabled — ONLY for UI, no business logic
 _ENABLE_DOCS = os.getenv("ENV", "development") != "production"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -123,6 +127,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         raise RuntimeError("Failed to connect to database after 10 attempts") from None
 
     app.state.ready = True
+    logger.info("application_startup_complete", message="OMNIAI Core is ready to accept requests")
     yield
 
     # Shutdown
@@ -161,7 +166,8 @@ async def rate_limit_handler(request: Request, exc: Exception) -> JSONResponse:
 
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
-# Middleware (order matters!)
+# Middlewares
+app.add_middleware(MetricsMiddleware)
 app.add_middleware(LoggingMiddleware)
 app.add_middleware(TenantValidationMiddleware)
 
@@ -170,9 +176,7 @@ app.include_router(health.router, prefix="/v1")
 app.include_router(agriculture.router, prefix="/v1")
 app.include_router(auth.router, prefix="/v1/auth")
 app.include_router(me.router, prefix="/v1")
-
-logger.info("application_startup_complete", message="OMNIAI Core is ready to accept requests")
-
+app.include_router(metrics_router)
 
 if __name__ == "__main__":
     host = os.getenv("UVICORN_HOST", "127.0.0.1")
