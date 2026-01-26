@@ -72,6 +72,8 @@ from omniai.db.session import engine
 from omniai.models.organization import Base as OrgBase
 from omniai.models.user import Base as UserBase
 from omniai.core.limiter import limiter as rate_limiter
+# Determine if docs should be enabled — ONLY for UI, no business logic
+_ENABLE_DOCS = os.getenv("ENV", "development") != "production"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -135,7 +137,11 @@ app = FastAPI(
     title="OMNIAI Core Platform",
     description="The sovereign foundation for trillion-dollar AI applications.",
     version="0.1.0",
+    docs_url="/docs" if _ENABLE_DOCS else None,
+    redoc_url="/redoc" if _ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if _ENABLE_DOCS else None,
     lifespan=lifespan,
+
 )
 
 # Attach limiter to app state

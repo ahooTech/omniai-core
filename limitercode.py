@@ -194,3 +194,115 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("application_shutdown", message="Database engine disposed")
 
 """
+
+
+"""
+
+
+# src/omniai/api/v1/schemas.py
+import re
+from typing import List
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+class UserCreate(BaseModel):
+    email: EmailStr = Field(
+        ...,
+        description="User's email address. Must be unique across the platform.",
+        example="user@example.com"
+    )
+    password: str = Field(
+        ...,
+        description=(
+            "Secure password with at least 8 characters, including uppercase, "
+            "lowercase, digit, and special character."
+        ),
+        min_length=8,
+        example="MyP@ssw0rd!"
+    )
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain an uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain a lowercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain a digit")
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
+            raise ValueError("Password must contain a special character")
+        return v
+
+
+class Token(BaseModel):
+    access_token: str = Field(
+        ...,
+        description="JWT access token for authenticating API requests",
+        example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    )
+    token_type: str = Field(
+        default="bearer",
+        description="Token type (always 'bearer' for this API)",
+        example="bearer"
+    )
+
+
+class OrganizationSummary(BaseModel):
+    id: str = Field(
+        ...,
+        description="Unique organization ID (org_... format)",
+        example="org_a1b2c3d4e5f6"
+    )
+    name: str = Field(
+        ...,
+        description="Human-readable organization name",
+        example="Acme Corp"
+    )
+    slug: str = Field(
+        ...,
+        description="URL-friendly organization identifier",
+        example="acme-corp"
+    )
+    role: str = Field(
+        ...,
+        description="User's role in this organization: 'owner' or 'member'",
+        example="owner"
+    )
+    is_default: bool = Field(
+        ...,
+        description="Whether this is the user's default organization on login",
+        example=True
+    )
+
+
+class UserMe(BaseModel):
+    id: str = Field(
+        ...,
+        description="Unique user ID (usr_... format)",
+        example="usr_x9y8z7w6v5u4"
+    )
+    email: str = Field(
+        ...,
+        description="User's verified email address",
+        example="user@example.com"
+    )
+    active_organization_id: str = Field(
+        ...,
+        description="ID of the currently active organization",
+        example="org_a1b2c3d4e5f6"
+    )
+    role_in_active_org: str = Field(
+        ...,
+        description="User's role in the active organization",
+        example="admin"
+    )
+    organizations: List[OrganizationSummary] = Field(
+        ...,
+        description="List of all organizations the user belongs to"
+    )
+
+
+    """

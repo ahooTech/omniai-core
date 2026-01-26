@@ -6,6 +6,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    ENV: str = Field(
+        default="development",
+        description="Environment: 'development', 'test', or 'production'"
+    )
+    
     DATABASE_URL: str = Field(
         default="postgresql+asyncpg://user:password@localhost/omniai",
         description="Async PostgreSQL connection URL"
