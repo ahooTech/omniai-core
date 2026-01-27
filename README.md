@@ -3,7 +3,7 @@
 > The sovereign, production-grade foundation for AI systems that serve 1 billion underserved people.
 
 > Built for performance, reliability, and African problem-solving  
-> From Nakuru, with hunger and code  
+> From Nairobi, with hunger and code  
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue)](https://python.org)
@@ -33,7 +33,12 @@ source venv/Scripts/activate .  # Linux/Mac
 # venv\Scripts\activate  # Windows
 
 pip install -e .
-uvicorn src.omniai.main:app --reload
+
+# Install Docker
+
+docker-compose -f docker-compose-test.yml build --no-cache
+
+docker-compose -f docker-compose-test.yml up --exit-code-from test
 ```
 
 
@@ -48,7 +53,16 @@ OMNIAI-CORE/
 ├── .pytest_cache/
 ├── .ruff_cache/
 ├── .venv/
+│   ├── Include/
+│   ├── Lib/
+│   ├── Scripts/
+│   ├── share/
+│   └── pyvenv.cfg
 ├── build/
+├── docs/
+│   └── adr/
+│       └── 001-database-choice.md
+├── htmlcov/
 ├── scripts/
 │   ├── bootstrap.sh
 │   └── start.sh
@@ -57,14 +71,15 @@ OMNIAI-CORE/
 │       ├── __pycache__/
 │       ├── api/
 │       │   ├── __pycache__/
-│       │   └── v1/
-│       │       ├── __pycache__/
-│       │       ├── agriculture.py
-│       │       ├── auth.py
-│       │       ├── health.py
-│       │       ├── me.py
-│       │       ├── schemas.py
-│       │       └── __init__.py
+│       │   ├── v1/
+│       │   │   ├── __pycache__/
+│       │   │   ├── agriculture.py
+│       │   │   ├── auth.py
+│       │   │   ├── health.py
+│       │   │   ├── me.py
+│       │   │   ├── metrics.py
+│       │   │   ├── schemas.py
+│       │   │   └── __init__.py
 │       ├── core/
 │       │   ├── __pycache__/
 │       │   ├── config.py
@@ -72,6 +87,8 @@ OMNIAI-CORE/
 │       │   ├── limiter.py
 │       │   ├── logging_middleware.py
 │       │   ├── logging.py
+│       │   ├── metrics_config.py
+│       │   ├── metrics_middleware.py
 │       │   └── middleware.py
 │       ├── db/
 │       │   ├── __pycache__/
@@ -93,11 +110,13 @@ OMNIAI-CORE/
 ├── omniai.egg-info/
 ├── tests/
 │   ├── __pycache__/
+│   │   └── __init__.cpython-312.pyc
 │   ├── unit/
 │   │   ├── __pycache__/
 │   │   ├── __init__.py
 │   │   └── test_auth.py
 │   └── __init__.py
+├── .coverage
 ├── .env
 ├── .env.test.docker
 ├── .gitattributes
@@ -105,10 +124,11 @@ OMNIAI-CORE/
 ├── docker-compose-test.yml
 ├── docker-compose.yml
 ├── Dockerfile
-├── LICENSE
+├── limitercode.py
 ├── pyproject.toml
 ├── README.md
 └── requirements.txt
+
 
 ```
 ## 🧪 Testing
@@ -129,6 +149,11 @@ MIT © Antony Henry Oduor Onyango
 - [ ] Security & Hardening
 - [ ] Observability & Production Thinking
 - [ ] Engineering Mindset & Execution
+
+
+## Architecture
+- [Architecture Decision Records (ADRs)](docs/adr/)
+
 
 
 # https://github.com/ahooTech/omniai-core.git

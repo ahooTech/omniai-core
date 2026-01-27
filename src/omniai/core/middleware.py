@@ -21,7 +21,6 @@ PUBLIC_PATHS = {
     "/v1/health",
     "/v1/health/ready",
     "/metrics",
-    "/ready",
     "/v1/auth/signup",
     "/v1/auth/login",
     "/docs",
@@ -117,3 +116,8 @@ class TenantValidationMiddleware(BaseHTTPMiddleware):
         )
 
         return await call_next(request)
+
+
+# NOTE: We intentionally avoid loading full ORM objects here.
+# Authorization requires only ID existence checks — not user/org data.
+# lazy="selectin" is irrelevant in this context; raw selects are optimal.
