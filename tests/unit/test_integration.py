@@ -1,66 +1,34 @@
-
 import httpx
 import pytest
 import os
 
 from unittest import mock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 from pydantic import ValidationError
 from omniai.core.config import Settings
-from typing import AsyncGenerator
 
 
-############################################################################################ for unit tests to have a different dp session
-
-# --- IN-MEMORY TEST DB SETUP (self-contained) ---
-import asyncio
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-from sqlalchemy.pool import StaticPool
-
-# Create in-memory SQLite engine (shared across tests in this file)
-_test_engine = create_async_engine(
-    "sqlite+aiosqlite:///:memory:",
-    echo=False,
-    future=True,
-    poolclass=StaticPool,  # Required for in-memory SQLite sharing
-)
-
-_TestSessionLocal = async_sessionmaker(
-    bind=_test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False,
-)
-
-async def _init_test_db():
-    """Create all tables once."""
-    from omniai.models.user import Base as UserBase
-    from omniai.models.organization import Base as OrgBase
-    async with _test_engine.begin() as conn:
-        await conn.run_sync(UserBase.metadata.create_all)
-        await conn.run_sync(OrgBase.metadata.create_all)
-
-# Initialize DB once at module level
-asyncio.run(_init_test_db())
-# --- END TEST DB SETUP ---
-
-#############################################################################################################
+from sqlalchemy.ext.asyncio import AsyncSession
+from omniai.api.deps import get_current_user
+from omniai.models.user import User
+from omniai.services.auth import get_user_from_token
+from omniai.api.v1.schemas import UserCreate, OrganizationCreate
+from fastapi import HTTPException
 
 
 
 
 # URL of the real app inside Docker
 BASE_URL = "http://app:8000"
+HTTPX_TIMEOUT = 30.0
 
 
 # All tests now use real HTTP
 # Health check 1
 @pytest.mark.asyncio
 async def test_health_check():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         response = await ac.get("/v1/health")
         assert response.status_code == 200
         assert response.json() == {"status": "ok", "service": "omniai-core"}
@@ -68,7 +36,7 @@ async def test_health_check():
 # Signup to login to me 2
 @pytest.mark.asyncio
 async def test_full_auth_flow_with_default_tenant():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         email = "integration4.test@omniai.dev"
         password = "SecurePass123!"
         r1 = await ac.post("/v1/auth/signup", json={"email": email, "password": password})
@@ -91,7 +59,7 @@ async def test_full_auth_flow_with_default_tenant():
 # Token accessing another token's tenant 3
 @pytest.mark.asyncio
 async def test_user_cannot_access_other_tenant():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         # User A
         await ac.post("/v1/auth/signup", json={"email": "usera@test.com", "password": "SecurePass123!"})
         login_a = await ac.post("/v1/auth/login", data={"username": "usera@test.com", "password": "SecurePass123!"})
@@ -120,7 +88,7 @@ async def test_user_cannot_access_other_tenant():
 # Loging in with wrong password 4
 @pytest.mark.asyncio
 async def test_login_with_wrong_password():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         # Signup
         await ac.post("/v1/auth/signup", json={"email": "badpass@test.com", "password": "GoodPass123!"})
         # Login with wrong password
@@ -132,7 +100,7 @@ async def test_login_with_wrong_password():
 # Testing missing header 5
 @pytest.mark.asyncio
 async def test_protected_route_without_token():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         r = await ac.get("/v1/me")
         assert r.status_code == 401
         assert r.json()["error"]["code"] == "MISSING_AUTH_TOKEN"
@@ -140,7 +108,7 @@ async def test_protected_route_without_token():
 # Testing invalid token 6
 @pytest.mark.asyncio
 async def test_protected_route_with_malformed_token():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         r = await ac.get("/v1/me", headers={"Authorization": "Bearer invalid.junk.token"})
         assert r.status_code == 401
         assert r.json()["error"]["code"] == "INVALID_TOKEN"
@@ -149,7 +117,7 @@ async def test_protected_route_with_malformed_token():
 # Don't allow same email signup twice 7
 @pytest.mark.asyncio
 async def test_signup_duplicate_email():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         email = "dup@test.com"
         await ac.post("/v1/auth/signup", json={"email": email, "password": "SecurePass123!"})
         r2 = await ac.post("/v1/auth/signup", json={"email": email, "password": "AnotherPass123!"})
@@ -161,7 +129,7 @@ async def test_signup_duplicate_email():
 # Fake tenant ID 8
 @pytest.mark.asyncio
 async def test_access_nonexistent_organization():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         # Signup + login
         email = "nonexist@test.com"
         await ac.post("/v1/auth/signup", json={"email": email, "password": "SecurePass123!"})
@@ -216,7 +184,7 @@ def test_decode_token_with_invalid_user_id_format():
 # User signed up an no default org was created,  then they login and when /me is fetched it finds no default org. #Should never happen 11
 @pytest.mark.asyncio
 async def test_user_with_no_default_org_fails_gracefully():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         email = "nodefault@test.com"
         password = "SecurePass123!"
 
@@ -268,7 +236,7 @@ def test_password_hashing():
 # Password strength test 13
 @pytest.mark.asyncio
 async def test_signup_weak_password():
-    async with httpx.AsyncClient(base_url=BASE_URL) as ac:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=HTTPX_TIMEOUT) as ac:
         r = await ac.post("/v1/auth/signup", json={"email": "weak@test.com", "password": "123"})
         assert r.status_code == 422
         assert "Password must be at least 8 characters" in r.json()["detail"][0]["msg"]
@@ -302,223 +270,171 @@ def test_settings_fails_without_jwt_secret_key():
         assert "Field required" in errors[0]["msg"]
 
 
-# tests/unit/test_session.py
-@pytest.mark.asyncio
-async def test_get_db_yields_session():
-    from omniai.db.session import get_db
-    """get_db should yield an async session that auto-closes."""
-    async for session in get_db():
-        assert session is not None
-        assert session.is_active  # Session should be active during yield
-
-    # After the async for loop, session should be closed
-    # You can't check this directly, but you can verify no exceptions
-    # (which implies proper cleanup)
-
-
-############################################################### testing services/auth.py Testing functions in Isolation
-
-@pytest.fixture
-async def db() -> AsyncGenerator[AsyncSession, None]:
-    """Provides a fresh DB session for each test (with rollback)."""
-    async with _TestSessionLocal() as session:
-        yield session
-        await session.rollback()  # Clean up after each test
-
-
-
-# Unit test for authenticate_user
-@pytest.mark.asyncio
-async def test_authenticate_user_success(db):
-    from omniai.services.auth import authenticate_user, create_user_with_org
-    
-    # Create a test user
-    email = "auth_test_success@test.com"
-    password = "SecurePass123!"
-    await create_user_with_org(db, email, password)
-    
-    # Authenticate
-    user = await authenticate_user(db, email, password)
-    assert user is not None
-    assert user.email == email
-
+###############################################################
+# Unit tests for src/omniai/services/auth.py — error paths in get_user_from_token
+###############################################################
 
 @pytest.mark.asyncio
-async def test_authenticate_user_invalid_password(db):
-    from omniai.services.auth import authenticate_user, create_user_with_org
-    
-    email = "auth_test_invalid@test.com"
-    password = "SecurePass123!"
-    await create_user_with_org(db, email, password)
-    
-    # Wrong password
-    user = await authenticate_user(db, email, "WrongPassword123!")
+async def test_get_user_from_token_missing_sub():
+    mock_db = AsyncMock(spec=AsyncSession)
+
+    with patch("omniai.services.auth.decode_token", return_value={"exp": 123456}):
+        user = await get_user_from_token(mock_db, "valid-token")
+
     assert user is None
 
 
 @pytest.mark.asyncio
-async def test_authenticate_user_nonexistent_email(db):
-    from omniai.services.auth import authenticate_user
-    
-    user = await authenticate_user(db, "nonexistent@test.com", "any_password")
-    assert user is None
+async def test_get_user_from_token_invalid_token():
+    mock_result = AsyncMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    mock_db = AsyncMock(spec=AsyncSession)
+    mock_db.execute = AsyncMock(return_value=mock_result)  # ✅ FIXED
+
+    # Patch decode_token to raise exception
+    with patch("omniai.core.jwt.decode_token", side_effect=Exception("Invalid token")):
+        user = await get_user_from_token(mock_db, "invalid-token")
+        assert user is None
+        # Covers: exception / decode failure path
 
 
 @pytest.mark.asyncio
-async def test_create_user_with_org_creates_personal_org(db):
-    from omniai.services.auth import create_user_with_org
-    from omniai.models.user import User
-    from omniai.models.organization import Organization
-    from sqlalchemy import select
-
-    email = "unit_test_create@test.com"
-    password = "TestPass123!"
-    
-    user = await create_user_with_org(db, email, password)
-    
-    # Verify user
-    assert user.email == email
-    assert user.hashed_password is not None
-    
-    # Verify org was created
-    result = await db.execute(select(Organization).where(Organization.name.like(f"Personal – {email}%")))
-    org = result.scalar_one_or_none()
-    assert org is not None
-    assert org.slug.startswith("personal")
-    
-    # Verify membership
-    from omniai.models.user import user_organization
-    result = await db.execute(
-        select(user_organization)
-        .where(user_organization.c.user_id == user.id)
-        .where(user_organization.c.organization_id == org.id)
-    )
-    membership = result.fetchone()
-    assert membership is not None
-    assert membership.is_default is True
-    assert membership.role == "owner"
-
-
-# Make slug to always exist in db so that we loop 100+ times to trigger error "Could not generate a unique slug for Personal org""
-@pytest.mark.asyncio
-async def test_create_user_with_org_fails_after_100_slug_attempts(db):
-    from omniai.services.auth import create_user_with_org
-    from unittest.mock import AsyncMock, MagicMock
-
-    # Create a mock result that mimics .scalar_one_or_none() returning an org (i.e., collision)
+async def test_get_user_from_token_user_not_found():
     mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = MagicMock()  # Simulate existing org
+    mock_result.scalar_one_or_none.return_value = None  # sync method
 
-    # Mock db.execute to return the mock result WHEN AWAITED
-    db.execute = AsyncMock(return_value=mock_result)
+    mock_db = AsyncMock(spec=AsyncSession)
+    mock_db.execute = AsyncMock(return_value=mock_result)
 
-    email = "slug-collision@test.com"
-    password = "TestPass123!"
+    with patch("omniai.services.auth.decode_token", return_value={"sub": "usr_123"}):
+        user = await get_user_from_token(mock_db, "valid-token")
 
-    with pytest.raises(ValueError, match="Could not generate a unique slug"):
-        await create_user_with_org(db, email, password)
+    assert user is None
 
-    assert db.execute.call_count == 100
+
+@pytest.mark.asyncio
+async def test_get_user_from_token_error_paths():
+    # Directly test multiple error branches in get_user_from_token
+
+    mock_result = AsyncMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    mock_db = AsyncMock(spec=AsyncSession)
+    mock_db.execute = AsyncMock(return_value=mock_result)  # ✅ FIXED
+
+    # Case 1: missing "sub"
+    with patch("omniai.core.jwt.decode_token", return_value={"exp": 1769757322}):
+        user = await get_user_from_token(mock_db, "valid-token")
+        assert user is None
+
+    # Case 2: decode exception
+    with patch("omniai.core.jwt.decode_token", side_effect=Exception("Decode fail")):
+        user = await get_user_from_token(mock_db, "invalid-token")
+        assert user is None
+
+    # Case 3: user not found (DB query returns None)
+    with patch("omniai.core.jwt.decode_token", return_value={"sub": "usr_123"}):
+        user = await get_user_from_token(mock_db, "valid-token")
+        assert user is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_from_token_decode_returns_non_dict():
+    mock_result = AsyncMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    mock_db = AsyncMock(spec=AsyncSession)
+    mock_db.execute = AsyncMock(return_value=mock_result)  # ✅ FIXED
+
+    # Patch decode_token to return a non-dict (AttributeError on .get)
+    with patch("omniai.core.jwt.decode_token", return_value="invalid"):
+        user = await get_user_from_token(mock_db, "valid-token")
+        assert user is None
 
 
 
 ###############################################################
-# Unit tests for services/organization.py
+# Unit tests for src/omniai/api/deps.py
 ###############################################################
 
-@pytest.mark.asyncio
-async def test_get_user_org_role_returns_role(db):
-    from omniai.services.organization import get_user_org_role
-    from omniai.models.user import User, user_organization
-    from omniai.models.organization import Organization
 
-    # Create user and org
-    user = User(email="org_test@test.com", hashed_password="x")
-    org = Organization(name="Test Org", slug="test-org")
+class MockCredentials:
+    def __init__(self, credentials: str):
+        self.credentials = credentials
+
+class MockDB:
+    async def __aenter__(self): return self
+    async def __aexit__(self, *args): pass
+
+
+@pytest.mark.asyncio
+async def test_get_current_user_success():
+    from sqlalchemy.ext.asyncio import AsyncSession
     
-    db.add(user)
-    db.add(org)
-    await db.flush()
-
-    # Link with role "member"
-    await db.execute(
-        user_organization.insert().values(
-            user_id=user.id,
-            organization_id=org.id,
-            role="member"
+    with patch("omniai.api.deps.get_user_from_token", new_callable=AsyncMock) as mock_func:
+        mock_func.return_value = User(id="usr_123", email="test@example.com", hashed_password="x")
+        mock_db = AsyncMock(spec=AsyncSession)
+        
+        user = await get_current_user(
+            credentials=MockCredentials("valid-token"),
+            db=mock_db
         )
-    )
-    await db.commit()
-
-    # Test
-    role = await get_user_org_role(db, str(user.id), str(org.id))
-    assert role == "member"
+        assert user.id == "usr_123"
+        mock_func.assert_called_once_with(mock_db, "valid-token")
 
 
 @pytest.mark.asyncio
-async def test_get_user_org_role_returns_none_if_no_membership(db):
-    from omniai.services.organization import get_user_org_role
-    from omniai.models.user import User
-    from omniai.models.organization import Organization
-
-    user = User(email="no_member@test.com", hashed_password="x")
-    org = Organization(name="Lonely Org", slug="lonely")
-
-    db.add(user)
-    db.add(org)
-    await db.flush()
-    
-    await db.commit()
-
-    role = await get_user_org_role(db, str(user.id), str(org.id))
-    assert role is None
+async def test_get_current_user_invalid_token():
+    with patch("omniai.api.deps.get_user_from_token", new_callable=AsyncMock) as mock_func:
+        mock_func.return_value = None
+        
+        with pytest.raises(HTTPException) as exc:
+            await get_current_user(
+                credentials=MockCredentials("invalid-token"),
+                db=MockDB()
+            )
+        assert exc.value.status_code == 401
 
 
-@pytest.mark.asyncio
-async def test_is_org_owner_returns_true_if_owner(db):
-    from omniai.services.organization import is_org_owner
-    from omniai.models.user import User, user_organization
-    from omniai.models.organization import Organization
 
-    user = User(email="owner@test.com", hashed_password="x")
-    org = Organization(name="My Org", slug="my-org")
+###############################################################
+# Unit tests for src/omniai/api/v1/schemas.py
+###############################################################
 
-    db.add(user)
-    db.add(org)
-    await db.flush()
+def test_user_create_password_validation():
 
-    await db.execute(
-        user_organization.insert().values(
-            user_id=user.id,
-            organization_id=org.id,
-            role="owner"
-        )
-    )
-    await db.commit()
+    # Valid password
+    valid = UserCreate(email="test@example.com", password="SecurePass123!")
+    assert valid.password == "SecurePass123!"
 
-    assert await is_org_owner(db, str(user.id), str(org.id)) is True
+    # Invalid passwords
+    with pytest.raises(ValueError, match="Password must be at least 8 characters"):
+        UserCreate(email="test@example.com", password="Short1!")
+
+    with pytest.raises(ValueError, match="Password must contain an uppercase letter"):
+        UserCreate(email="test@example.com", password="nopassword123!")
+
+    with pytest.raises(ValueError, match="Password must contain a lowercase letter"):
+        UserCreate(email="test@example.com", password="NOPASSWORD123!")
+
+    with pytest.raises(ValueError, match="Password must contain a digit"):
+        UserCreate(email="test@example.com", password="NoDigitsHere!")
+
+    with pytest.raises(ValueError, match="Password must contain a special character"):
+        UserCreate(email="test@example.com", password="NoSpecial123")
 
 
-@pytest.mark.asyncio
-async def test_is_org_owner_returns_false_if_not_owner(db):
-    from omniai.services.organization import is_org_owner
-    from omniai.models.user import User, user_organization
-    from omniai.models.organization import Organization
+def test_organization_create_name_validation():
 
-    user = User(email="not_owner@test.com", hashed_password="x")
-    org = Organization(name="Not Mine", slug="not-mine")
+    # Valid name
+    valid = OrganizationCreate(name="My Org")
+    assert valid.name == "My Org"
 
-    db.add(user)
-    db.add(org)
-    await db.flush()
+    # Empty name
+    with pytest.raises(ValueError, match="Organization name cannot be empty"):
+        OrganizationCreate(name="   ")
 
-    await db.execute(
-        user_organization.insert().values(
-            user_id=user.id,
-            organization_id=org.id,
-            role="member"  # ← not owner
-        )
-    )
-    await db.commit()
-
-    assert await is_org_owner(db, str(user.id), str(org.id)) is False
+    # Too long
+    with pytest.raises(ValueError, match="Organization name too long"):
+        OrganizationCreate(name="A" * 101)

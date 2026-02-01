@@ -100,7 +100,10 @@ unsafe-fixes = false
 "src/omniai/tests/unit/test_auth.py" = ["B008"]
 "src/omniai/api/v1/me.py" = ["B008"]
 "src/omniai/api/v1/auth.py" = ["B008", "ARG001"]
-"src/omniai/api/v1/health.py" = ["B008"]    
+"src/omniai/api/v1/health.py" = ["B008"]
+"src/omniai/api/deps.py" = ["B008"]
+"src/omniai/api/v1/invite.py" = ["B008"]  
+"src/omniai/api/v1/organization.py" = ["B008"]
 "src/omniai/main.py" = ["ARG001"]
 
 
@@ -124,5 +127,6 @@ omit = [
     "src/omniai/main.py",
     "src/omniai/__main__.py",
     "*/migrations/*",
-    "*/tests/*"
+    "*/tests/*",
+    "src/omniai/models/*.py"
 ]

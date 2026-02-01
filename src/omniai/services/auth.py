@@ -10,6 +10,9 @@ from omniai.core.logging import logger
 from omniai.models.organization import Organization
 from omniai.models.user import User, user_organization
 
+from omniai.services.organization import create_organization_for_user
+from omniai.core.jwt import decode_token 
+
 
 def get_password_hash(password: str) -> str:
     # ✅ Truncate to 72 bytes (bcrypt limit)
@@ -45,11 +48,58 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> Opti
     return user  # ✅ Only ever returns User or None
 
 
+
 async def create_user_with_org(db: AsyncSession, email: str, password: str) -> User:
+    logger.info("create_user_with_org_start", email=email)
+    
+    # Create user
+    hashed_pw = get_password_hash(password)
+    user = User(email=email, hashed_password=hashed_pw)
+    db.add(user)
+    await db.flush()
+    logger.debug("user_created", user_id=user.id)
+
+    # Create Personal org and link as DEFAULT
+    personal_org_name = f"Personal – {email}"
+    await create_organization_for_user(
+        db, 
+        user_id=user.id, 
+        name=personal_org_name, 
+        set_as_default=True
+    )
+
+    await db.commit()
+    await db.refresh(user)
+    logger.info("create_user_with_org_success", user_id=user.id, email=email)
+    return user
+
+
+async def get_user_from_token(db: AsyncSession, token: str) -> User | None:
     """
-    Creates a new user with a Personal organization.
-    The user is the OWNER of this org, and it is set as their DEFAULT.
+    Decode JWT and fetch user from DB.
+    Returns None if token is invalid or user doesn't exist.
     """
+    try:
+        payload = decode_token(token)
+        # Safely extract user_id
+        user_id = payload.get("sub")
+        if not isinstance(user_id, str) or not user_id:
+            logger.warning("invalid_token_missing_sub", token=token[:10] + "...")
+            return None
+    except Exception:
+        logger.warning("invalid_token_decode_error", token=token[:10] + "...")
+        return None
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    return result.scalar_one_or_none()
+
+
+"""
+async def create_user_with_org(db: AsyncSession, email: str, password: str) -> User:
+
+    # Creates a new user with a Personal organization.
+    # The user is the OWNER of this org, and it is set as their DEFAULT.
+
     # Later: org_name = f"Personal – {email} ({country_code})"
     # In future, infer from email domain or IP — for now, just label
     # === 1. Create Personal Organization ===
@@ -100,3 +150,5 @@ async def create_user_with_org(db: AsyncSession, email: str, password: str) -> U
     await db.refresh(user)
     logger.info("create_user_with_org_success", user_id=str(user.id), org_id=str(org.id), email=email)
     return user
+
+"""

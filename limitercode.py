@@ -306,3 +306,467 @@ class UserMe(BaseModel):
 
 
     """
+
+
+###############################################################
+# Unit tests for src/omniai/services/invite.py
+###############################################################
+
+"""
+@pytest.mark.asyncio
+async def test_create_invite_success(db):
+    from omniai.services.invite import create_invite
+    from omniai.api.v1.schemas import InviteCreate
+    from omniai.services.organization import create_organization_for_user
+    from omniai.services.auth import create_user_with_org
+    #from omniai.models.user import User
+    from sqlalchemy import select
+
+    # Generate unique emails
+    owner_email = f"owner_{uuid.uuid4().hex}@test.com"
+    invitee_email = f"invitee_{uuid.uuid4().hex}@test.com"
+
+    # Create owner
+    await create_user_with_org(db, owner_email, "SecurePass123!")
+    result = await db.execute(select(User).where(User.email == owner_email))
+    owner = result.scalar_one()
+    
+    # Create org
+    org = await create_organization_for_user(db, owner.id, "Test Org", set_as_default=False)
+    await db.commit()
+
+    # Create invite
+    invite_data = InviteCreate(email=invitee_email)
+    invite = await create_invite(db, org.id, owner.id, invite_data)
+
+    assert invite.email == invitee_email
+    assert invite.organization_id == org.id
+    assert invite.invited_by_id == owner.id
+    assert len(invite.token) > 20
+
+
+@pytest.mark.asyncio
+async def test_create_invite_forbidden_not_owner(db):
+    from omniai.services.invite import create_invite
+    from omniai.api.v1.schemas import InviteCreate
+    from omniai.services.organization import create_organization_for_user
+    from omniai.services.auth import create_user_with_org
+    #from omniai.models.user import User
+    from sqlalchemy import select
+
+    # Unique emails
+    owner_email = f"owner_{uuid.uuid4().hex}@test.com"
+    non_owner_email = f"nonowner_{uuid.uuid4().hex}@test.com"
+
+    # Create two users
+    await create_user_with_org(db, owner_email, "SecurePass123!")
+    await create_user_with_org(db, non_owner_email, "SecurePass123!")
+    
+    # Get users
+    owner_result = await db.execute(select(User).where(User.email == owner_email))
+    owner = owner_result.scalar_one()
+    non_owner_result = await db.execute(select(User).where(User.email == non_owner_email))
+    non_owner = non_owner_result.scalar_one()
+    
+    # Create org (owned by owner)
+    org = await create_organization_for_user(db, owner.id, "Test Org", set_as_default=False)
+    await db.commit()
+
+    # Non-owner tries to invite → should fail
+    invite_data = InviteCreate(email="newuser@example.com")
+    with pytest.raises(HTTPException) as exc:
+        await create_invite(db, org.id, non_owner.id, invite_data)
+    
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_accept_invite_success(db):
+    from omniai.services.invite import create_invite, accept_invite
+    from omniai.api.v1.schemas import InviteCreate
+    from omniai.services.organization import create_organization_for_user
+    from omniai.services.auth import create_user_with_org
+    #from omniai.models.user import User
+    from sqlalchemy import select
+
+    # Unique emails
+    owner_email = f"owner_{uuid.uuid4().hex}@test.com"
+    member_email = f"member_{uuid.uuid4().hex}@test.com"
+
+    # Create owner and org
+    await create_user_with_org(db, owner_email, "SecurePass123!")
+    owner_result = await db.execute(select(User).where(User.email == owner_email))
+    owner = owner_result.scalar_one()
+    org = await create_organization_for_user(db, owner.id, "Test Org", set_as_default=False)
+    await db.commit()
+
+    # Create invite
+    invite_data = InviteCreate(email=member_email)
+    invite = await create_invite(db, org.id, owner.id, invite_data)
+    await db.commit()
+
+    # Create member user
+    await create_user_with_org(db, member_email, "SecurePass123!")
+    member_result = await db.execute(select(User).where(User.email == member_email))
+    member = member_result.scalar_one()
+
+    # Accept invite
+    await accept_invite(db, invite.token, member.id)
+
+    # Verify membership
+    from omniai.models.user import user_organization
+    result = await db.execute(
+        select(user_organization.c.role)
+        .where(
+            user_organization.c.user_id == member.id,
+            user_organization.c.organization_id == org.id
+        )
+    )
+    role = result.scalar_one_or_none()
+    assert role == "member"
+
+
+@pytest.mark.asyncio
+async def test_accept_invite_invalid_token(db):
+    from omniai.services.invite import accept_invite
+    from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        await accept_invite(db, "invalid-token", "usr_123")
+    
+    assert exc.value.status_code == 400
+
+"""
+
+
+###############################################################
+# Unit tests for src/omniai/services/invite.py
+###############################################################
+
+"""
+@pytest.mark.asyncio
+async def test_create_invite_success(db):
+    from omniai.services.invite import create_invite
+    from omniai.api.v1.schemas import InviteCreate
+    from omniai.services.organization import create_organization_for_user
+    from omniai.models.user import user_organization
+    #from omniai.models.user import User
+    #from omniai.models.organization import Organization
+    #from sqlalchemy import select
+
+    # --- INLINE NO-COMMIT USER CREATION ---
+    owner_email = f"owner_{uuid.uuid4().hex}@test.com"
+    hashed_pw = get_password_hash("SecurePass123!")
+    owner = User(email=owner_email, hashed_password=hashed_pw)
+    db.add(owner)
+    await db.flush()
+
+    personal_org = Organization(
+        name=f"Personal – {owner_email}",
+        slug=f"personal-{owner_email.replace('@', '').replace('.', '')}"
+    )
+    db.add(personal_org)
+    await db.flush()
+   
+    await db.execute(
+        user_organization.insert().values(
+            user_id=owner.id,
+            organization_id=personal_org.id,
+            role="owner",
+            is_default=True
+        )
+    )
+    # --- END INLINE ---
+
+    # Create org
+    org = await create_organization_for_user(db, owner.id, "Test Org", set_as_default=False)
+    # ⚠️ Do NOT commit — keep in transaction
+
+    # Create invite
+    invitee_email = f"invitee_{uuid.uuid4().hex}@test.com"
+    invite_data = InviteCreate(email=invitee_email)
+    invite = await create_invite(db, org.id, owner.id, invite_data)
+
+    assert invite.email == invitee_email
+    assert invite.organization_id == org.id
+    assert invite.invited_by_id == owner.id
+    assert len(invite.token) > 20
+
+
+@pytest.mark.asyncio
+async def test_create_invite_forbidden_not_owner(db):
+    from omniai.services.invite import create_invite
+    from omniai.api.v1.schemas import InviteCreate
+    from omniai.services.organization import create_organization_for_user
+    #from omniai.models.user import User
+    #from omniai.models.organization import Organization
+    from sqlalchemy import select
+
+    # --- OWNER (no commit) ---
+    owner_email = f"owner_{uuid.uuid4().hex}@test.com"
+    owner = User(email=owner_email, hashed_password=get_password_hash("SecurePass123!"))
+    db.add(owner)
+    await db.flush()
+    # Skip personal org — not needed for this test
+
+    # --- NON-OWNER (no commit) ---
+    non_owner_email = f"nonowner_{uuid.uuid4().hex}@test.com"
+    non_owner = User(email=non_owner_email, hashed_password=get_password_hash("SecurePass123!"))
+    db.add(non_owner)
+    await db.flush()
+
+    # Create org (owned by owner)
+    org = await create_organization_for_user(db, owner.id, "Test Org", set_as_default=False)
+
+    # Non-owner tries to invite → should fail
+    invite_data = InviteCreate(email="newuser@example.com")
+    with pytest.raises(HTTPException) as exc:
+        await create_invite(db, org.id, non_owner.id, invite_data)
+    
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_accept_invite_success(db):
+    from omniai.services.invite import create_invite, accept_invite
+    from omniai.api.v1.schemas import InviteCreate
+    from omniai.services.organization import create_organization_for_user
+    #from omniai.models.user import User
+    #from omniai.models.organization import Organization
+    from sqlalchemy import select
+
+    # --- OWNER (no commit) ---
+    owner_email = f"owner_{uuid.uuid4().hex}@test.com"
+    owner = User(email=owner_email, hashed_password=get_password_hash("SecurePass123!"))
+    db.add(owner)
+    await db.flush()
+
+    # Create org
+    org = await create_organization_for_user(db, owner.id, "Test Org", set_as_default=False)
+
+    # --- MEMBER (no commit) ---
+    member_email = f"member_{uuid.uuid4().hex}@test.com"
+    member = User(email=member_email, hashed_password=get_password_hash("SecurePass123!"))
+    db.add(member)
+    await db.flush()
+
+    # Create invite
+    invite_data = InviteCreate(email=member_email)
+    invite = await create_invite(db, org.id, owner.id, invite_data)
+
+    # Accept invite
+    await accept_invite(db, invite.token, member.id)
+
+    # Verify membership
+    from omniai.models.user import user_organization
+    result = await db.execute(
+        select(user_organization.c.role)
+        .where(
+            user_organization.c.user_id == member.id,
+            user_organization.c.organization_id == org.id
+        )
+    )
+    role = result.scalar_one_or_none()
+    assert role == "member"
+
+
+@pytest.mark.asyncio
+async def test_accept_invite_invalid_token(db):
+    from omniai.services.invite import accept_invite
+    #from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        await accept_invite(db, "invalid-token", "usr_123")
+    
+    assert exc.value.status_code == 400
+
+"""
+
+
+
+
+#############################################################################################
+
+
+"""
+@pytest.mark.asyncio
+async def test_create_invite_success(db):
+    #from omniai.services.invite import create_invite
+    #from omniai.api.v1.schemas import InviteCreate
+    #from omniai.models.user import User, user_organization
+    #from omniai.models.organization import Organization
+    #from sqlalchemy import select
+    # Create owner (no commit)
+    owner_email = f"owner_{uuid.uuid4().hex}@test.com"
+    hashed_pw = get_password_hash("SecurePass123!")
+    owner = User(email=owner_email, hashed_password=hashed_pw)
+    db.add(owner)
+    await db.flush()
+
+    # Create org with UNIQUE slug
+    unique_slug = f"test-org-{uuid.uuid4().hex}"
+    org = Organization(name="Test Org", slug=unique_slug)
+    db.add(org)
+    await db.flush()
+
+    # Link owner to org
+    await db.execute(
+        user_organization.insert().values(
+            user_id=owner.id,
+            organization_id=org.id,
+            role="owner",
+            is_default=False
+        )
+    )
+
+    # Create invite
+    invitee_email = f"invitee_{uuid.uuid4().hex}@test.com"
+    invite_data = InviteCreate(email=invitee_email)
+    invite = await create_invite(db, org.id, owner.id, invite_data)
+
+    assert invite.email == invitee_email
+    assert invite.organization_id == org.id
+    assert invite.invited_by_id == owner.id
+    assert len(invite.token) > 20
+
+
+@pytest.mark.asyncio
+async def test_create_invite_forbidden_not_owner(db):
+    #from omniai.services.invite import create_invite
+    #from omniai.api.v1.schemas import InviteCreate
+    #from omniai.models.user import User, user_organization
+    #from omniai.models.organization import Organization
+    # Owner
+    owner_email = f"owner_{uuid.uuid4().hex}@test.com"
+    owner = User(email=owner_email, hashed_password=get_password_hash("SecurePass123!"))
+    db.add(owner)
+    await db.flush()
+
+    # Non-owner
+    non_owner_email = f"nonowner_{uuid.uuid4().hex}@test.com"
+    non_owner = User(email=non_owner_email, hashed_password=get_password_hash("SecurePass123!"))
+    db.add(non_owner)
+    await db.flush()
+
+    # Org owned by owner (UNIQUE slug)
+    unique_slug = f"test-org-{uuid.uuid4().hex}"
+    org = Organization(name="Test Org", slug=unique_slug)
+    db.add(org)
+    await db.flush()
+
+    await db.execute(
+        user_organization.insert().values(
+            user_id=owner.id,
+            organization_id=org.id,
+            role="owner",
+            is_default=False
+        )
+    )
+
+    # Non-owner tries to invite → should fail
+    invite_data = InviteCreate(email="newuser@example.com")
+    with pytest.raises(HTTPException) as exc:
+        await create_invite(db, org.id, non_owner.id, invite_data)
+    
+    assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_accept_invite_success(db):
+    #from omniai.services.invite import create_invite, accept_invite
+    #from omniai.api.v1.schemas import InviteCreate
+    #from omniai.models.user import User, user_organization
+    #from omniai.models.organization import Organization
+    #from sqlalchemy import select
+    # Owner
+    owner_email = f"owner_{uuid.uuid4().hex}@test.com"
+    owner = User(email=owner_email, hashed_password=get_password_hash("SecurePass123!"))
+    db.add(owner)
+    await db.flush()
+
+    # Org (UNIQUE slug)
+    unique_slug = f"test-org-{uuid.uuid4().hex}"
+    org = Organization(name="Test Org", slug=unique_slug)
+    db.add(org)
+    await db.flush()
+
+    await db.execute(
+        user_organization.insert().values(
+            user_id=owner.id,
+            organization_id=org.id,
+            role="owner",
+            is_default=False
+        )
+    )
+
+    # Member
+    member_email = f"member_{uuid.uuid4().hex}@test.com"
+    member = User(email=member_email, hashed_password=get_password_hash("SecurePass123!"))
+    db.add(member)
+    await db.flush()
+
+    # Create invite
+    invite_data = InviteCreate(email=member_email)
+    invite = await create_invite(db, org.id, owner.id, invite_data)
+
+    # Accept invite
+    await accept_invite(db, invite.token, member.id)
+
+    # Verify membership
+    result = await db.execute(
+        select(user_organization.c.role)
+        .where(
+            user_organization.c.user_id == member.id,
+            user_organization.c.organization_id == org.id
+        )
+    )
+    role = result.scalar_one_or_none()
+    assert role == "member"
+
+
+@pytest.mark.asyncio
+async def test_accept_invite_invalid_token(db):
+    #from omniai.services.invite import accept_invite
+    #from fastapi import HTTPException
+
+    with pytest.raises(HTTPException) as exc:
+        await accept_invite(db, "invalid-token", "usr_123")
+    
+    assert exc.value.status_code == 400
+"""
+
+
+
+"""
+@pytest.mark.asyncio
+async def test_get_user_from_token_missing_sub():
+    # Mock: db.execute returns a result that .scalar_one_or_none() → None
+    mock_result = AsyncMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    mock_db = AsyncMock(spec=AsyncSession)
+    mock_db.execute = AsyncMock(return_value=mock_result)  # ✅ FIXED
+
+    # Patch decode_token to return dict without "sub"
+    with patch("omniai.core.jwt.decode_token", return_value={"exp": 1769757322}):
+        user = await get_user_from_token(mock_db, "valid-token")
+        assert user is None
+        # Covers: invalid/missing sub path
+
+        
+        
+@pytest.mark.asyncio
+async def test_get_user_from_token_user_not_found():
+    mock_result = AsyncMock()
+    mock_result.scalar_one_or_none.return_value = None
+
+    mock_db = AsyncMock(spec=AsyncSession)
+    mock_db.execute = AsyncMock(return_value=mock_result)
+
+    # Patch decode_token to return a valid-looking user ID
+    with patch("omniai.core.jwt.decode_token", return_value={"sub": "usr_123"}):
+        user = await get_user_from_token(mock_db, "valid-token")
+
+    # Correct assertion: function fails safely
+    assert user is None
+"""

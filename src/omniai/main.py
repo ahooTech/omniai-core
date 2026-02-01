@@ -63,8 +63,8 @@ from sqlalchemy.exc import OperationalError
 from slowapi.errors import RateLimitExceeded
 from starlette.responses import JSONResponse
 
-from omniai.api.v1 import auth, me, health, agriculture
-from omniai.api.v1.metrics import router as metrics_router
+from omniai.api.v1 import auth, me, health, agriculture, organization, metrics, invite
+# from omniai.api.v1.metrics import router as metrics_router
 from omniai.core.config import Settings
 from omniai.core.logging import logger
 from omniai.core.metrics_middleware import MetricsMiddleware
@@ -73,6 +73,7 @@ from omniai.core.middleware import TenantValidationMiddleware
 from omniai.db.session import engine
 from omniai.models.organization import Base as OrgBase
 from omniai.models.user import Base as UserBase
+from omniai.models.invite import Base as InviteBase
 from omniai.core.limiter import limiter as rate_limiter
 
 # Determine if docs should be enabled — ONLY for UI, no business logic
@@ -117,6 +118,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             async with engine.begin() as conn:
                 await conn.run_sync(UserBase.metadata.create_all)
                 await conn.run_sync(OrgBase.metadata.create_all)
+                await conn.run_sync(InviteBase.metadata.create_all)
             logger.info("database_initialized", tables_created=["users", "organizations", "user_organization"])
             break
         except OperationalError as e:
@@ -176,7 +178,10 @@ app.include_router(health.router, prefix="/v1")
 app.include_router(agriculture.router, prefix="/v1")
 app.include_router(auth.router, prefix="/v1/auth")
 app.include_router(me.router, prefix="/v1")
-app.include_router(metrics_router)
+#app.include_router(metrics_router)
+app.include_router(metrics.router, prefix="/v1")
+app.include_router(organization.router, prefix="/v1/organizations")
+app.include_router(invite.router, prefix="/v1")
 
 if __name__ == "__main__":
     host = os.getenv("UVICORN_HOST", "127.0.0.1")

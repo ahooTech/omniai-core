@@ -25,6 +25,20 @@ class UserCreate(BaseModel):
         return v
 
 
+class OrganizationCreate(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Organization name cannot be empty")
+        if len(v) > 100:
+            raise ValueError("Organization name too long")
+        return v
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -44,3 +58,18 @@ class UserMe(BaseModel):
     active_organization_id: str
     role_in_active_org: str
     organizations: List[OrganizationSummary]
+
+
+# 🔽 ADD THESE NEW SCHEMAS BELOW 🔽
+
+class InviteCreate(BaseModel):
+    email: EmailStr
+
+
+class InviteAccept(BaseModel):
+    token: str
+
+
+class InviteResponse(BaseModel):
+    invite_id: str
+    token: str  # For testing only — hide in prod
