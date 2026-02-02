@@ -1,3 +1,4 @@
+```markdown
 # [ADR-005] Cloud-Native Deployment Pipeline with Docker, GitHub Actions, and Render
 
 ## Status
@@ -11,12 +12,13 @@ OMNIAI Core must be deployable:
 - **Efficiently**: Fast feedback loop (<5 min from push to deploy)
 - **Cost-effectively**: Free tier viable for early validation
 
-Requirements:
+## Requirements:
 - Automated testing (unit, integration, security)
 - Containerized build for environment parity
 - One-command local setup (`docker-compose up`)
 - Public HTTPS endpoint with auto-renewing TLS
 - Zero manual deployment steps
+- **Observability**: Structured logs shipped to cloud provider
 
 ## Decision
 We implement a fully automated, cloud-native pipeline using:
@@ -35,8 +37,10 @@ We implement a fully automated, cloud-native pipeline using:
   - `.dockerignore` excludes secrets, cache, IDE files
   - Minimal base image (`python:3.11-slim`)
 - **Local development**:  
-  - `docker-compose.yml` defines `app`, `postgres`, `redis` services  
+  - `docker-compose.yml` defines `app`, `postgres` services  
   - Volumes for DB persistence during dev
+  - Health check against `/v1/health/ready`
+- **Image tagging**: `ghcr.io/ahooTech/omniai-core:sha-${{ github.sha }}`
 
 #### 2. GitHub Actions CI/CD
 - **Trigger**: On every `push` to `main`
@@ -45,10 +49,11 @@ We implement a fully automated, cloud-native pipeline using:
   2. **Lint**: `ruff check`
   3. **Type Check**: `mypy`
   4. **Security Scan**: `bandit` (code) + `safety` (deps)
-  5. **Build**: Docker image with tag `ghcr.io/ahooTech/omniai-core:sha-${{ github.sha }}`
+  5. **Build**: Docker image with SHA tag
   6. **Push**: Image published to GitHub Container Registry (GHCR)
 - **Quality gates**: Any step failure blocks deployment
 - **Caching**: Dependency caches speed up repeat runs
+- **Coverage**: Enforces >90% test coverage
 
 #### 3. Render Deployment
 - **Web Service**:
@@ -56,10 +61,12 @@ We implement a fully automated, cloud-native pipeline using:
   - Auto-redeploys on new image push
   - Free TLS certificate (HTTPS enforced)
   - Health checks against `/v1/health/ready`
+  - **Structured JSON logs** visible in Render dashboard
 - **PostgreSQL**:
   - Managed database instance (free tier)
   - Encrypted at rest and in transit
   - Connection string via `DATABASE_URL` env var
+  - Auto-backups enabled
 - **Secrets Management**:
   - All secrets (JWT key, DB URL) set in Render dashboard
   - Never committed to Git or stored in Docker layers
@@ -69,6 +76,12 @@ We implement a fully automated, cloud-native pipeline using:
 - **Single source of truth**: `Dockerfile` defines runtime environment
 - **Config via env vars**: 12-factor compliant (`DATABASE_URL`, `JWT_SECRET_KEY`)
 - **No “works on my machine”**: Dev, CI, prod all use containers
+- **Health readiness**: App waits for DB before accepting traffic
+
+#### 5. Observability Integration
+- **Logs**: JSON-formatted, shipped to Render → searchable in dashboard
+- **Metrics**: Custom middleware tracks request count/duration (Prometheus-ready)
+- **Tracing**: `trace_id` in every log line for request correlation
 
 ## Consequences
 
@@ -78,6 +91,7 @@ We implement a fully automated, cloud-native pipeline using:
 - **Security**: Secrets never in code; minimal attack surface
 - **Cost**: $0 for early validation (Render free tier)
 - **Debugging**: Local `docker-compose` mirrors prod exactly
+- **Audit-ready**: Full log trail with context
 
 ### Bad
 - **Vendor lock-in (mild)**: Render-specific features may require migration effort later
@@ -115,3 +129,5 @@ We implement a fully automated, cloud-native pipeline using:
 - GitHub Actions Workflow: [`.github/workflows/ci.yml`](https://github.com/ahooTech/omniai-core/actions)
 - Render Deployment: https://omniai-web.onrender.com
 - Render PostgreSQL: Managed DB with auto-backups
+- Structured Logging: [`src/omniai/core/logging.py`](https://github.com/ahooTech/omniai-core)
+```

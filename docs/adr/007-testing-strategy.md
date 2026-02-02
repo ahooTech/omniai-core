@@ -1,3 +1,4 @@
+```markdown
 # [ADR-007] Isolated, High-Coverage Testing Strategy with CI Quality Gates
 
 ## Status
@@ -10,7 +11,7 @@ OMNIAI Core must maintain **extreme reliability** because:
 - Auth and tenant validation are security-critical
 - Future AI agents will depend on this foundation
 
-Requirements:
+## Requirements:
 - **No test pollution**: Tests must not affect each other or dev DB
 - **High confidence**: >90% test coverage on core logic
 - **Fast feedback**: Tests run in <2 minutes in CI
@@ -36,6 +37,7 @@ We implement a strict, isolated testing strategy using:
   Each test runs in a transaction that rolls back → no cleanup needed
 - **Environment safety**:  
   `DATABASE_URL` overridden in test env → impossible to hit prod DB
+- **Render compatibility**: Uses same PostgreSQL version as production
 
 #### 2. Test Structure
 - **Unit tests**: Pure functions (e.g., password hashing, slug generation)
@@ -43,9 +45,11 @@ We implement a strict, isolated testing strategy using:
   - Auth flow: signup → login → access `/me`  
   - Org flow: create org → invite user → switch default org  
   - Tenant isolation: verify user A can’t see org B
+  - **Error paths**: All 4xx/5xx cases covered (e.g., last owner protection)
 - **Fixtures**:  
   - `test_user`, `test_org`, `auth_headers` → reusable test data
 - **Async support**: `pytest-asyncio` for async endpoint tests
+- **Email uniqueness**: All test emails use `uuid4()` to prevent collisions
 
 #### 3. Coverage Enforcement
 - **Tool**: `pytest-cov`
@@ -55,6 +59,7 @@ We implement a strict, isolated testing strategy using:
   - `services/` (auth, org logic) → 100% covered  
   - `api/` (routers) → >90% covered  
   - Excludes: `main.py`, migrations
+- **Branch coverage**: All error paths (e.g., "last owner", "personal org immutable") explicitly tested
 
 #### 4. CI Quality Gates (GitHub Actions)
 - **Pipeline**:
@@ -65,6 +70,7 @@ We implement a strict, isolated testing strategy using:
   5. Run security scanner (`bandit`, `safety`)
 - **Policy**: Any step failure = deployment blocked
 - **Speed**: Tests complete in <90 seconds (optimized DB setup)
+- **Artifact**: Coverage report published for audit
 
 #### 5. No Mocking Policy
 - **Why**: Mocking hides integration bugs (e.g., SQL syntax errors, constraint violations)
@@ -73,6 +79,7 @@ We implement a strict, isolated testing strategy using:
   - Real SQLAlchemy async engine
   - Real FastAPI test client
 - **Exception**: External HTTP calls (e.g., SMS APIs) → mocked
+- **Partial index validation**: Tests verify PostgreSQL-specific features (e.g., one default org per user)
 
 ## Consequences
 
@@ -82,6 +89,7 @@ We implement a strict, isolated testing strategy using:
 - **Security assurance**: Auth logic tested against real attack vectors
 - **CI as gatekeeper**: No broken code reaches production
 - **Debuggable**: Real DB errors surface immediately
+- **Audit-ready**: Full coverage report for compliance
 
 ### Bad
 - **Slightly slower tests**: ~90s vs ~30s with full mocking
@@ -118,3 +126,5 @@ This strategy ensures OMNIAI Core is **battle-tested before every deploy** — c
 - GitHub Actions: [CI Workflow](https://github.com/ahooTech/omniai-core/actions)
 - Coverage Report: Generated in CI artifacts
 - Render Deployment: Only green CI → auto-deploy
+- Partial Index Validation: [`user_organization` table](https://github.com/ahooTech/omniai-core/blob/main/src/omniai/models/user.py)
+```

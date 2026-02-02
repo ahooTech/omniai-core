@@ -23,15 +23,15 @@ We select **FastAPI (v0.100+)** as the core backend framework.
 
 ### Justification by Requirement
 
-| Requirement | FastAPI Solution |
-|-----------|------------------|
-| **Async Support** | Native `async`/`await` with Starlette under the hood |
-| **Validation** | Pydantic v2 models auto-validate requests/responses |
-| **Documentation** | Auto-generated OpenAPI + Swagger UI at `/docs` |
-| **Type Safety** | Full mypy compatibility; type hints drive validation |
-| **Performance** | Benchmarks show ~3x faster than Flask/Django (TechEmpower) |
-| **Middleware** | Starlette-compatible middleware stack (logging, auth, rate limiting) |
-| **Ecosystem** | First-class support for SQLAlchemy async, structlog, slowapi |
+| Requirement       | FastAPI Solution                                                     |
+|-----------        |------------------                                                    |
+| **Async Support** | Native `async`/`await` with Starlette under the hood                 |
+| **Validation**    | Pydantic v2 models auto-validate requests/responses                  |
+| **Documentation** | Auto-generated OpenAPI + Swagger UI at `/docs`                       |
+| **Type Safety**   | Full mypy compatibility; type hints drive validation                 |
+| **Performance**   | Benchmarks show ~3x faster than Flask/Django (TechEmpower)           |
+| **Middleware**    | Starlette-compatible middleware stack (logging, auth, rate limiting) |
+| **Ecosystem**     | First-class support for SQLAlchemy async, structlog, slowapi         |
 
 ### Key Implementation Patterns Used
 - **Dependency Injection**:  
@@ -47,6 +47,10 @@ We select **FastAPI (v0.100+)** as the core backend framework.
   All routes use `async def` for non-blocking I/O
 - **OpenAPI Customization**:  
   Automatic docs include security schemes (JWT bearer)
+- **Structured Logging Integration**:  
+  Middleware binds `trace_id`, `user_id`, `org_id` to all logs
+- **Health Checks**:  
+  Standard `/v1/health` and `/v1/health/ready` endpoints for cloud platforms
 
 ## Consequences
 
@@ -56,6 +60,7 @@ We select **FastAPI (v0.100+)** as the core backend framework.
 - **Self-Documenting API**: `/docs` always up-to-date — critical for frontend/AI agent integration
 - **High Throughput**: Handles 1K+ RPM on modest hardware (verified via load testing)
 - **Future-Proof**: Async foundation ready for LLM streaming, WebSockets, background agents
+- **Observability-Ready**: Full context propagation for debugging and auditing
 
 ### Bad
 - **Smaller Community**: Fewer Stack Overflow answers vs Flask/Django
@@ -101,10 +106,11 @@ FastAPI delivers the **optimal balance of speed, safety, and scalability** for O
 Its async-native, type-safe, self-documenting nature makes it the **only rational choice** for a modern AI engineering platform.
 
 ## References
-- FastAPI Official: https://fastapi.tiangolo.com/
-- TechEmpower Benchmarks: https://www.techempower.com/benchmarks/
+- FastAPI Official: https://fastapi.tiangolo.com/  
+- TechEmpower Benchmarks: https://www.techempower.com/benchmarks/  
 - OMNIAI Core Implementation:  
   - [`main.py`](https://github.com/ahooTech/omniai-core)  
   - [`api/v1/auth.py`](https://github.com/ahooTech/omniai-core)
-- Live Docs: https://omniai-web.onrender.com/docs
+- Live Docs: https://omniai-web.onrender.com/docs  
+- Structured Logging: [`src/omniai/core/logging.py`](https://github.com/ahooTech/omniai-core)
 ```

@@ -18,6 +18,7 @@ Key threats to mitigate:
 - Brute-force login attempts
 - Credential leakage via logs or errors
 - Session hijacking
+- User enumeration via error messages
 
 ## Decision
 We implement a **stateless JWT-based authentication flow** with:
@@ -26,6 +27,7 @@ We implement a **stateless JWT-based authentication flow** with:
 3. **IP-based rate limiting**: 5 failed logins per minute per IP
 4. **Minimal error disclosure**: Generic "invalid credentials" message
 5. **Structured audit logging**: All auth attempts logged with `trace_id`, `email`, outcome
+6. **Zero sensitive data in logs**: No passwords, tokens, or PII in structured logs
 
 ### Detailed Implementation
 
@@ -35,6 +37,10 @@ We implement a **stateless JWT-based authentication flow** with:
   - Truncate passwords to **72 bytes** before hashing (to prevent DoS via long inputs)  
   - Use `encode("utf-8")[:72]` to avoid bcrypt library inconsistencies
 - **Storage**: Only `hashed_password` stored in `users` table — never plaintext
+- **Validation**: Pydantic enforces:
+  - Min 8 chars
+  - Uppercase, lowercase, digit, special char
+  - No common patterns (enforced by frontend)
 
 #### 2. JWT Design
 - **Algorithm**: HMAC-SHA256 (`HS256`)
@@ -48,6 +54,7 @@ We implement a **stateless JWT-based authentication flow** with:
   ```
 - **Secret**: 32+ byte random key from `JWT_SECRET_KEY` (cloud-managed)
 - **No refresh tokens**: New JWT issued on every successful login (implicit rotation)
+- **Validation**: Reject tokens with invalid `sub` format (`usr_...` prefix required)
 
 #### 3. Rate Limiting
 - **Library**: `slowapi` (Starlette-compatible)
@@ -56,20 +63,30 @@ We implement a **stateless JWT-based authentication flow** with:
   - Count both success and failure (to prevent enumeration)
 - **Storage**: In-memory counter (Redis-ready for future scale)
 - **Response**: `429 Too Many Requests` with no details
+- **Bypass**: Disabled in local development (`ENV != production`)
 
 #### 4. Error Handling & Security
 - **Login failure**: Always return `401 Unauthorized` with message:  
   `"Invalid email or password"`  
   → Never reveal if email exists
-- **Validation**: Pydantic enforces email format, password length (min 8 chars)
+- **Validation**: Pydantic enforces email format, password strength
 - **Headers**: No sensitive data in logs (passwords never logged)
+- **Token errors**: Return generic `401` — never expose JWT structure
 
 #### 5. Audit Logging
 - **Events logged**:
   - `login_attempt` (email, trace_id)
   - `login_success` (email, user_id, trace_id)
   - `login_failed` (email, reason="invalid_credentials", trace_id)
+  - `auth_user_not_found` (email, trace_id)
+  - `auth_password_invalid` (email, trace_id)
 - **Context**: All logs include `client_ip`, `trace_id`, and (when authenticated) `user_id`
+- **Redaction**: No passwords, tokens, or raw request bodies in logs
+
+#### 6. Integration with Multi-Tenancy
+- Auth is **tenant-agnostic**: Login returns user identity only
+- `/v1/me` resolves active org using `X-Tenant-ID` header
+- No auth endpoint exposes org context — prevents tenant enumeration
 
 ## Consequences
 
@@ -79,6 +96,7 @@ We implement a **stateless JWT-based authentication flow** with:
 - **Stateless**: Scales horizontally without session store
 - **Audit-compliant**: Full trail of auth activity for security teams
 - **User-friendly**: No CAPTCHAs or MFA friction (for Phase 1)
+- **Zero data leaks**: Structured logs contain no PII or secrets
 
 ### Bad
 - **No built-in MFA**: Requires future extension for high-security use cases
@@ -114,4 +132,5 @@ We implement a **stateless JWT-based authentication flow** with:
 - Rate Limiting Middleware: [`slowapi` integration](https://github.com/ahooTech/omniai-core)
 - Password Hashing Fix: [bcrypt 72-byte truncation](https://github.com/pyca/bcrypt/issues/104)
 - Render Deployment: https://omniai-web.onrender.com/v1/auth/login
+- Structured Logging: [`src/omniai/core/logging.py`](https://github.com/ahooTech/omniai-core)
 ```

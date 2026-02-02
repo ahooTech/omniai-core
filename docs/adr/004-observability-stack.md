@@ -45,6 +45,7 @@ We implement a lightweight but production-grade observability stack using:
   - Console renderer in dev  
   - JSON renderer in production (via env flag)
 - **No sensitive data**: Passwords, tokens never logged
+- **Event naming**: Consistent, searchable event names (`auth_login_success`, `org_deleted`, etc.)
 
 #### 2. Context Propagation Middleware
 - **Trace ID**: Generated per request → attached to all logs in that request
@@ -58,6 +59,7 @@ We implement a lightweight but production-grade observability stack using:
   )
   ```
 - **Automatic cleanup**: Context reset after each request
+- **Health endpoints**: Exclude user/org context (no auth required)
 
 #### 3. Health Endpoints
 - **`GET /v1/health`**  
@@ -69,6 +71,7 @@ We implement a lightweight but production-grade observability stack using:
   - Checks: Database connectivity  
   - Response: `{"status": "ready", "service": "omniai-core"}` or `503` if DB unreachable
 - **Used by**: Render health checks, Kubernetes probes, load balancers
+- **Startup probe**: Waits for DB connection before marking app as ready
 
 #### 4. Metrics (Initial Set)
 - **Exposed via**: Standard HTTP endpoint (`/metrics` — not yet implemented but designed for)
@@ -77,10 +80,17 @@ We implement a lightweight but production-grade observability stack using:
   - `http_request_duration_seconds{endpoint}`
   - `auth_login_attempts_total{outcome}`
 - **Library**: Compatible with Prometheus client (to be added in Phase 2)
+- **Current implementation**: Custom middleware tracks request count/duration
 
 #### 5. Log Destinations
 - **Local dev**: Pretty-printed console logs
 - **Production**: JSON logs shipped to cloud provider (Render → CloudWatch equivalent)
+- **Retention**: Managed by cloud provider (Render retains logs for 7 days)
+
+#### 6. Security & Compliance
+- **PII handling**: No email, password, or token in logs
+- **Audit trail**: All auth and org lifecycle events logged with `trace_id`
+- **Error masking**: Generic error messages in responses; full details only in logs
 
 ## Consequences
 

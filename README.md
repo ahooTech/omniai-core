@@ -40,9 +40,6 @@ docker-compose -f docker-compose-test.yml build --no-cache
 
 docker-compose -f docker-compose-test.yml up --exit-code-from test
 ```
-
-
-
 ## 📁 Project Structure
 ```
 OMNIAI-CORE/
@@ -59,29 +56,38 @@ OMNIAI-CORE/
 │   ├── share/
 │   └── pyvenv.cfg
 ├── build/
+│   ├── bdist.win-amd64/
+│   └── lib/
 ├── docs/
 │   └── adr/
-│       └── 001-database-choice.md
+│       ├── 001-database-choice.md
+│       ├── 002-multi-tenancy-strategy.md
+│       ├── 003-auth-architecture.md
+│       ├── 004-observability-stack.md
+│       ├── 005-deployment-pipeline.md
+│       ├── 006-framework-selection.md
+│       └── 007-testing-strategy.md
+├── runbooks/
+│   └── deploy.md
 ├── htmlcov/
 ├── scripts/
 │   ├── bootstrap.sh
 │   └── start.sh
 ├── src/
 │   └── omniai/
-│       ├── __pycache__/
 │       ├── api/
-│       │   ├── __pycache__/
-│       │   ├── v1/
-│       │   │   ├── __pycache__/
-│       │   │   ├── agriculture.py
-│       │   │   ├── auth.py
-│       │   │   ├── health.py
-│       │   │   ├── me.py
-│       │   │   ├── metrics.py
-│       │   │   ├── schemas.py
-│       │   │   └── __init__.py
+│       │   ├── deps.py
+│       │   ├── __init__.py
+│       │   └── v1/
+│       │       ├── agriculture.py
+│       │       ├── auth.py
+│       │       ├── health.py
+│       │       ├── invite.py
+│       │       ├── me.py
+│       │       ├── metrics.py
+│       │       ├── organization.py
+│       │       └── schemas.py
 │       ├── core/
-│       │   ├── __pycache__/
 │       │   ├── config.py
 │       │   ├── jwt.py
 │       │   ├── limiter.py
@@ -91,31 +97,28 @@ OMNIAI-CORE/
 │       │   ├── metrics_middleware.py
 │       │   └── middleware.py
 │       ├── db/
-│       │   ├── __pycache__/
 │       │   ├── __init__.py
 │       │   └── session.py
 │       ├── models/
-│       │   ├── __pycache__/
 │       │   ├── __init__.py
 │       │   ├── base.py
+│       │   ├── invite.py
 │       │   ├── organization.py
 │       │   └── user.py
 │       ├── services/
-│       │   ├── __pycache__/
 │       │   ├── __init__.py
 │       │   ├── auth.py
+│       │   ├── invite.py
 │       │   └── organization.py
-│       ├── __init__.py
-│       └── main.py
+│       ├── main.py
+│       └── __init__.py
 ├── omniai.egg-info/
 ├── tests/
-│   ├── __pycache__/
-│   │   └── __init__.cpython-312.pyc
-│   ├── unit/
-│   │   ├── __pycache__/
-│   │   ├── __init__.py
-│   │   └── test_auth.py
-│   └── __init__.py
+│   ├── __init__.py
+│   └── unit/
+│       ├── __init__.py
+│       ├── test_integration.py
+│       └── test_unit.py
 ├── .coverage
 ├── .env
 ├── .env.test.docker
@@ -124,10 +127,12 @@ OMNIAI-CORE/
 ├── docker-compose-test.yml
 ├── docker-compose.yml
 ├── Dockerfile
+├── LICENSE
 ├── limitercode.py
 ├── pyproject.toml
 ├── README.md
 └── requirements.txt
+
 
 
 ```
