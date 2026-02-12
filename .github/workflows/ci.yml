@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ "main", "cycle-2-production-hardening" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
