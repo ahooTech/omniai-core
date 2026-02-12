@@ -120,6 +120,7 @@ OMNIAI-CORE/
 │       ├── test_integration.py
 │       └── test_unit.py
 ├── .coverage
+├── .dockerignore
 ├── .env
 ├── .env.test.docker
 ├── .gitattributes
