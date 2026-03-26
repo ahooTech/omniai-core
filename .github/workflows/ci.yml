@@ -7,8 +7,8 @@ on:
     branches: [ "main" ]
 
 # ✅ Opt into Node.js 24 early (prevents deprecation warnings)
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+#env:
+  #FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   test:
