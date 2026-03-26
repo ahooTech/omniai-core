@@ -71,7 +71,7 @@ services:
         RUFF_CACHE_DIR=/tmp ruff check . &&
         mypy src/ &&
         bandit -r src/ -ll -x '**/migrations/**,**/__pycache__/**' &&
-        
+        safety check --full-report &&
 
         echo '🧪 Running tests with coverage...' &&
         pytest -v --tb=short --cov=omniai --cov-report=html --cov-fail-under=90
@@ -81,4 +81,4 @@ volumes:
   postgres_data:
 
 
-  #safety check --full-report &&
+  
