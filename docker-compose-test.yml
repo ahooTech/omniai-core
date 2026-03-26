@@ -55,6 +55,7 @@ services:
       # So psql/pg_isready/dropdb don't prompt for password
       # OMNIAI_DISABLE_RATE_LIMIT: 1
       PGPASSWORD: postgres
+      HOME: /tmp
     volumes:
       - ./htmlcov:/app/htmlcov
     command: |
